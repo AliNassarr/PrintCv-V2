@@ -44,7 +44,8 @@ Open http://localhost:3000.
 | `SESSION_SECRET` | A long random text (32+ characters) used to sign the login cookie. Make one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`. |
 | `FORTY_TWO_CLIENT_ID` | From your app at [profile.intra.42.fr/oauth/applications](https://profile.intra.42.fr/oauth/applications). |
 | `FORTY_TWO_CLIENT_SECRET` | From the same page. Never share it or commit it. |
-| `FORTY_TWO_API_BASE` | Optional. Leave empty. |
+| `FORTY_TWO_API_BASE` | Optional. Leave empty on your computer. See "If 42 blocks your host" below. |
+| `RELAY_SECRET` | Optional. Goes with `FORTY_TWO_API_BASE`. |
 
 In your 42 app, set the redirect URI to `<APP_URL>/api/auth/callback/42-school` and the scope to `public`.
 
@@ -55,6 +56,17 @@ You can use the editor without logging in. Only the "Log in with 42" button need
 1. Import the repo in [Vercel](https://vercel.com/new). It finds Next.js by itself.
 2. In **Settings → Environment Variables**, add `APP_URL`, `SESSION_SECRET`, `FORTY_TWO_CLIENT_ID` and `FORTY_TWO_CLIENT_SECRET`.
 3. Add your domain, and make sure your 42 app's redirect URI uses that domain.
+
+### If 42 blocks your host
+
+42's API can block server calls from Vercel ("We couldn't reach 42" on the live site). Then the login can end on a small Cloudflare Worker instead, which 42 lets through:
+
+1. Deploy `relay/cloudflare-worker.js` as a Worker (settings in `relay/wrangler.toml`).
+2. In the Worker's settings, add `APP_URL`, `FORTY_TWO_CLIENT_ID`, `FORTY_TWO_CLIENT_SECRET` and `RELAY_SECRET` (32+ random characters).
+3. In Vercel, set `FORTY_TWO_API_BASE` to the Worker's address and `RELAY_SECRET` to the same value.
+4. In your 42 app, add the redirect URI `<Worker address>/callback`.
+
+The Worker gets your 42 profile, signs it with `RELAY_SECRET`, and sends it back to `APP_URL` only. It keeps nothing.
 
 ## Commands
 

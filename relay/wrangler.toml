@@ -1,0 +1,6 @@
+# Cloudflare settings for the 42 login relay (see cloudflare-worker.js).
+# Deploy from this folder with: npx wrangler deploy
+name = "printcv-42-relay"
+main = "cloudflare-worker.js"
+compatibility_date = "2025-06-01"
+workers_dev = true

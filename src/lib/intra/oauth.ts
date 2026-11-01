@@ -31,15 +31,31 @@ function resolveOrigin(requestOrigin: string): string {
   return requestOrigin;
 }
 
+// Shared with the relay. It signs the profile the relay posts back (see relay-handoff.ts).
+export function relaySecret(): string {
+  const secret = cleanEnv(process.env.RELAY_SECRET);
+  if (secret && secret.length < 32) {
+    console.error("RELAY_SECRET is shorter than 32 characters, ignoring it");
+    return "";
+  }
+  return secret;
+}
+
 export function getIntraConfig(requestOrigin: string) {
   const clientId = cleanEnv(process.env.FORTY_TWO_CLIENT_ID);
   const clientSecret = cleanEnv(process.env.FORTY_TWO_CLIENT_SECRET);
   const origin = resolveOrigin(requestOrigin);
+  // Relay login (FORTY_TWO_API_BASE + RELAY_SECRET): 42 blocks server calls that start at Vercel,
+  // even through the relay, but not the ones a student's browser starts. So 42 sends the student
+  // to the relay, which logs in there and posts the signed profile to /api/auth/42/relay-finish.
+  const relay = relayBase();
+  const relayLogin = Boolean(relay && relaySecret());
   return {
     clientId,
     clientSecret,
     origin,
-    redirectUri: `${origin}/api/auth/callback/42-school`,
+    relayLogin,
+    redirectUri: relayLogin ? `${relay}/callback` : `${origin}/api/auth/callback/42-school`,
   };
 }
 
