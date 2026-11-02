@@ -8,7 +8,7 @@ import {
   HeadingLevel,
   BorderStyle,
 } from "docx";
-import { CVData } from "@/types/resume";
+import { CVData, DEFAULT_SECTION_ORDER } from "@/types/resume";
 import { removeEmDashes } from "@/lib/sanitizer";
 import { MAIN_EDUCATION_ID } from "@/lib/intra/cv-from-intra";
 
@@ -180,106 +180,108 @@ export async function generateCvDocx(data: CVData): Promise<Blob> {
     );
   };
 
-  if (mainEducation || otherEducation.length > 0) {
+  const renderEducation = () => {
+    if (!mainEducation && otherEducation.length === 0) return;
     addSectionHeader("Education");
-  }
 
-  if (mainEducation) {
-    addEducationTitle(
-      [mainEducation.institution?.trim(), levelLabel].filter(Boolean).join(" – "),
-      formatDateRange(mainEducation.startDate, mainEducation.endDate, mainEducation.isCurrent)
-    );
-
-    const mainProgram = mainEducation.program?.trim() || "";
-    const track = data.specializationTrack?.trim() || "";
-    const location = data.contact.location?.trim() || "";
-
-    if (data.educationState === "STATE_A_CORE") {
-      if (mainProgram || location) {
-        sections.push(
-          new Paragraph({
-            tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-            spacing: { after: 60 },
-            children: [
-              new TextRun({
-                text: mainProgram,
-                size: 19,
-                font: FONT_FAMILY,
-              }),
-              ...(location
-                ? [
-                    new TextRun("\t"),
-                    new TextRun({
-                      text: location,
-                      italics: true,
-                      size: 18,
-                      font: FONT_FAMILY,
-                      color: "4B5563",
-                    }),
-                  ]
-                : []),
-            ],
-          })
-        );
-      }
-    } else {
-      if (mainProgram) {
-        sections.push(
-          new Paragraph({
-            spacing: { after: track ? 20 : 60 },
-            children: [
-              new TextRun({
-                text: mainProgram,
-                size: 19,
-                font: FONT_FAMILY,
-              }),
-            ],
-          })
-        );
-      }
-      if (track) {
-        sections.push(
-          new Paragraph({
-            spacing: { after: 60 },
-            children: [
-              new TextRun({
-                text: `Specialization: ${track}`,
-                italics: true,
-                size: 18,
-                font: FONT_FAMILY,
-              }),
-            ],
-          })
-        );
-      }
-    }
-  }
-
-  // Other education entries
-  for (const edu of otherEducation) {
-    addEducationTitle(edu.institution?.trim() || "", formatDateRange(edu.startDate, edu.endDate, edu.isCurrent));
-    const detail = edu.degree?.trim() || edu.program?.trim() || "";
-    if (detail) {
-      sections.push(
-        new Paragraph({
-          spacing: { after: 60 },
-          children: [
-            new TextRun({
-              text: detail,
-              size: 19,
-              font: FONT_FAMILY,
-            }),
-          ],
-        })
+    if (mainEducation) {
+      addEducationTitle(
+        [mainEducation.institution?.trim(), levelLabel].filter(Boolean).join(" – "),
+        formatDateRange(mainEducation.startDate, mainEducation.endDate, mainEducation.isCurrent)
       );
+
+      const mainProgram = mainEducation.program?.trim() || "";
+      const track = data.specializationTrack?.trim() || "";
+      const location = data.contact.location?.trim() || "";
+
+      if (data.educationState === "STATE_A_CORE") {
+        if (mainProgram || location) {
+          sections.push(
+            new Paragraph({
+              tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+              spacing: { after: 60 },
+              children: [
+                new TextRun({
+                  text: mainProgram,
+                  size: 19,
+                  font: FONT_FAMILY,
+                }),
+                ...(location
+                  ? [
+                      new TextRun("\t"),
+                      new TextRun({
+                        text: location,
+                        italics: true,
+                        size: 18,
+                        font: FONT_FAMILY,
+                        color: "4B5563",
+                      }),
+                    ]
+                  : []),
+              ],
+            })
+          );
+        }
+      } else {
+        if (mainProgram) {
+          sections.push(
+            new Paragraph({
+              spacing: { after: track ? 20 : 60 },
+              children: [
+                new TextRun({
+                  text: mainProgram,
+                  size: 19,
+                  font: FONT_FAMILY,
+                }),
+              ],
+            })
+          );
+        }
+        if (track) {
+          sections.push(
+            new Paragraph({
+              spacing: { after: 60 },
+              children: [
+                new TextRun({
+                  text: `Specialization: ${track}`,
+                  italics: true,
+                  size: 18,
+                  font: FONT_FAMILY,
+                }),
+              ],
+            })
+          );
+        }
+      }
     }
-  }
+
+    // Other education entries
+    for (const edu of otherEducation) {
+      addEducationTitle(edu.institution?.trim() || "", formatDateRange(edu.startDate, edu.endDate, edu.isCurrent));
+      const detail = edu.degree?.trim() || edu.program?.trim() || "";
+      if (detail) {
+        sections.push(
+          new Paragraph({
+            spacing: { after: 60 },
+            children: [
+              new TextRun({
+                text: detail,
+                size: 19,
+                font: FONT_FAMILY,
+              }),
+            ],
+          })
+        );
+      }
+    }
+  };
 
   // ==============================================================
   // SECTION 2: EXPERIENCE (Dynamic Weighting Toggle)
   // When showExperience is false, this section is completely skipped
   // ==============================================================
-  if (data.showExperience && data.experience && data.experience.length > 0) {
+  const renderExperience = () => {
+    if (!data.showExperience || !data.experience || data.experience.length === 0) return;
     addSectionHeader("Experience");
 
     for (const exp of data.experience) {
@@ -355,14 +357,15 @@ export async function generateCvDocx(data: CVData): Promise<Blob> {
         );
       }
     }
-  }
+  };
 
   // ==============================================================
   // SECTION 3: SELECTED PROJECTS
   // Format: Name | Tech Stack (Left) \t Date (Right)
   // A project with no bullets renders only its header line.
   // ==============================================================
-  if (data.projects && data.projects.length > 0) {
+  const renderProjects = () => {
+    if (!data.projects || data.projects.length === 0) return;
     addSectionHeader("Selected Projects");
 
     for (const proj of data.projects) {
@@ -424,23 +427,24 @@ export async function generateCvDocx(data: CVData): Promise<Blob> {
         );
       }
     }
-  }
+  };
 
   // ==============================================================
   // SECTION 4: TECHNICAL SKILLS (Strict 4 Categories, empty ones hidden)
   // ==============================================================
-  const skillRows = (
-    [
-      ["Languages", data.skills?.languages],
-      ["Developer Tools", data.skills?.developerTools],
-      ["Technologies & Frameworks", data.skills?.technologiesFrameworks],
-      ["Project Management Tools", data.skills?.projectManagementTools],
-    ] as [string, string[] | undefined][]
-  )
-    .map(([label, items]) => [label, (items || []).filter(hasText)] as [string, string[]])
-    .filter(([, items]) => items.length > 0);
+  const renderSkills = () => {
+    const skillRows = (
+      [
+        ["Languages", data.skills?.languages],
+        ["Developer Tools", data.skills?.developerTools],
+        ["Technologies & Frameworks", data.skills?.technologiesFrameworks],
+        ["Project Management Tools", data.skills?.projectManagementTools],
+      ] as [string, string[] | undefined][]
+    )
+      .map(([label, items]) => [label, (items || []).filter(hasText)] as [string, string[]])
+      .filter(([, items]) => items.length > 0);
 
-  if (skillRows.length > 0) {
+    if (skillRows.length === 0) return;
     addSectionHeader("Technical Skills");
 
     for (const [label, items] of skillRows) {
@@ -463,12 +467,13 @@ export async function generateCvDocx(data: CVData): Promise<Blob> {
         })
       );
     }
-  }
+  };
 
   // ==============================================================
   // SECTION 5: RELEVANT COURSEWORK AND WORKSHOPS
   // ==============================================================
-  if (data.coursework && data.coursework.length > 0) {
+  const renderCoursework = () => {
+    if (!data.coursework || data.coursework.length === 0) return;
     addSectionHeader("Relevant Coursework and Workshops");
 
     for (const cw of data.coursework) {
@@ -498,12 +503,13 @@ export async function generateCvDocx(data: CVData): Promise<Blob> {
         })
       );
     }
-  }
+  };
 
   // ==============================================================
   // SECTION 6: EXTRACURRICULAR ACTIVITIES
   // ==============================================================
-  if (data.showExtracurriculars !== false && data.extracurriculars && data.extracurriculars.length > 0) {
+  const renderExtracurriculars = () => {
+    if (data.showExtracurriculars === false || !data.extracurriculars || data.extracurriculars.length === 0) return;
     addSectionHeader("Extracurricular Activities");
 
     for (const ec of data.extracurriculars) {
@@ -565,6 +571,34 @@ export async function generateCvDocx(data: CVData): Promise<Blob> {
           })
         );
       }
+    }
+  };
+
+  // Render sections according to cvData.sectionOrder
+  const order = (data.sectionOrder && data.sectionOrder.length > 0)
+    ? data.sectionOrder
+    : DEFAULT_SECTION_ORDER;
+
+  for (const secId of order) {
+    switch (secId) {
+      case "education":
+        renderEducation();
+        break;
+      case "experience":
+        renderExperience();
+        break;
+      case "projects":
+        renderProjects();
+        break;
+      case "skills":
+        renderSkills();
+        break;
+      case "coursework":
+        renderCoursework();
+        break;
+      case "extracurriculars":
+        renderExtracurriculars();
+        break;
     }
   }
 

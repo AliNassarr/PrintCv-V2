@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { CVSheet } from "@/components/templates/CVSheet";
 import { DEMO_CV } from "@/lib/sample-cv";
 import { OutputIndex } from "./OutputIndex";
 import { ScoreReceipt } from "./ScoreReceipt";
@@ -18,19 +17,24 @@ function Panel({ caption, children }: { caption: string; children: React.ReactNo
   );
 }
 
-// The demo CV at a true 560px where the stage has room. Where it has less (phones) the sheet shrinks to
-// the stage's width less its 16px inset, so no printed line is cut at its right edge. The box keeps the A4 shape,
-// so the whole page shows and the scaled sheet leaves no empty space below it.
-// --pdf-scale = sheet width / 793.7px (the A4 width at 96 dpi), with the same tan(atan2(a, b)) = a / b
-// trick as the hero; 100cqw is the stage's width (OutputIndex makes it a container).
-const FIT = "[--pdf-w:min(560px,100cqw_-_32px)] md:[--pdf-w:min(560px,100cqw_-_64px)] [--pdf-scale:tan(atan2(var(--pdf-w),793.7px))]";
+// The demo CV rendered as a high-resolution, pixel-perfect A4 page preview.
+// Scales fluidly up to 560px without layout distortion or bottom cutoff across all devices.
 function PdfPanel() {
   return (
     <Panel caption="One A4 page, ready to send.">
-      <div className={`aspect-[210/297] w-[var(--pdf-w)] overflow-hidden bg-paper ${FIT}`}>
-        <div className="w-[210mm] origin-top-left" style={{ transform: "scale(var(--pdf-scale))" }}>
-          <CVSheet data={DEMO_CV} nameAs="p" dataUi />
-        </div>
+      <div className="mx-auto w-full max-w-[560px]">
+        <picture>
+          <source srcSet="/landing/sample-cv.webp" type="image/webp" />
+          <img
+            src="/landing/sample-cv.png"
+            alt={`Sample CV for ${DEMO_CV.contact.fullName}, ${DEMO_CV.targetRole}, on one clean A4 page`}
+            width={794}
+            height={1123}
+            className="block h-auto w-full rounded-card border border-line bg-paper shadow-sm"
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
       </div>
     </Panel>
   );

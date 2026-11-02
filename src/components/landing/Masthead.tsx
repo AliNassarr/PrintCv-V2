@@ -1,3 +1,5 @@
+"use client";
+
 import { PrintCVLogo } from "@/components/ui/PrintCVLogo";
 import { ACTION } from "./frame";
 
@@ -10,6 +12,11 @@ const LINKS = [
 // The nav sits on the hero's cream field. On phones the links fold into a "Menu" (a native
 // <details>, so it opens without any script).
 export function Masthead() {
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const details = e.currentTarget.closest("details");
+    if (details) details.removeAttribute("open");
+  };
+
   return (
     <header className="absolute inset-x-0 top-0 z-20">
       <nav aria-label="Main" className="flex h-16 items-center gap-4 px-4 md:gap-8 md:px-6 lg:px-8">
@@ -28,13 +35,13 @@ export function Masthead() {
           Log in with 42
         </a>
         <details className="relative md:hidden">
-          <summary className="flex h-11 cursor-pointer list-none items-center px-1 text-step-small font-medium text-ink [&::-webkit-details-marker]:hidden">
+          <summary className="flex h-11 cursor-pointer list-none items-center px-2.5 text-step-small font-medium text-ink [&::-webkit-details-marker]:hidden">
             Menu
           </summary>
           <ul className="absolute right-0 top-full mt-2 w-48 rounded-card border border-line bg-paper py-2">
             {LINKS.map((l) => (
               <li key={l.href}>
-                <a href={l.href} className="flex h-11 items-center px-4 text-step-small text-ink hover:bg-stage">{l.label}</a>
+                <a href={l.href} onClick={handleLinkClick} className="flex h-11 items-center px-4 text-step-small text-ink hover:bg-stage">{l.label}</a>
               </li>
             ))}
           </ul>

@@ -39,6 +39,8 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
     updateExtracurricularItem,
     restoreProjectAt,
     restoreExperienceAt,
+    restoreEducationAt,
+    restoreExtracurricularAt,
     setStyleDensity,
     setShowExtracurriculars,
     studentProfile,
@@ -163,6 +165,10 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
       restoreProjectAt(buffer.item, buffer.index);
     } else if (buffer.type === "experience") {
       restoreExperienceAt(buffer.item, buffer.index);
+    } else if (buffer.type === "education") {
+      restoreEducationAt(buffer.item, buffer.index);
+    } else if (buffer.type === "activity") {
+      restoreExtracurricularAt(buffer.item, buffer.index);
     }
     // The toast with the Undo button is gone, so put focus on the card that came back,
     // or on the section title when that card's section is not the open one
@@ -334,7 +340,7 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
         <main
           id="studio-sheet"
           className={cx(
-            "min-h-0 flex-1 overflow-y-auto bg-paper pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0",
+            "min-h-0 flex-1 overflow-y-auto bg-paper pb-[calc(56px+env(safe-area-inset-bottom))] scroll-pb-[120px] lg:pb-0",
             pane === "preview" && "hidden lg:block",
           )}
         >
@@ -371,11 +377,11 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
                 />
               )}
 
-              {activeSection === "EDUCATION" && <EducationSection />}
+              {activeSection === "EDUCATION" && <EducationSection onSoftDelete={triggerSoftDelete} />}
 
               {activeSection === "SKILLS" && <SkillsSection />}
 
-              {activeSection === "ACTIVITIES" && <ActivitiesSection onOpenHelper={openHelper} />}
+              {activeSection === "ACTIVITIES" && <ActivitiesSection onOpenHelper={openHelper} onSoftDelete={triggerSoftDelete} />}
             </div>
           </div>
         </main>

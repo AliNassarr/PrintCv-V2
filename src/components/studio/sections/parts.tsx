@@ -151,8 +151,21 @@ export function LinesBlock({
   const added = useRef(false);
   const labelId = `item-${itemId}-lines`;
 
+  const keysRef = useRef<string[]>([]);
+  while (keysRef.current.length < lines.length) {
+    keysRef.current.push(`${itemId}-line-${Math.random().toString(36).slice(2, 9)}`);
+  }
+  if (keysRef.current.length > lines.length) {
+    keysRef.current.length = lines.length;
+  }
+
   // After a move, keep focus on the moved line's button (or the other arrow at the ends)
   const move = (from: number, to: number) => {
+    const nextKeys = [...keysRef.current];
+    const [movedKey] = nextKeys.splice(from, 1);
+    nextKeys.splice(to, 0, movedKey);
+    keysRef.current = nextKeys;
+
     onSetLines(swapLines(lines, from, to));
     requestAnimationFrame(() => {
       const row = listRef.current?.children[to];
@@ -164,6 +177,7 @@ export function LinesBlock({
 
   // After a delete, put the cursor in the next line (or the one before it), or on "Add a line" when none is left
   const remove = (i: number) => {
+    keysRef.current.splice(i, 1);
     onDeleteLine(i);
     focusAfterChange(groupRef.current, "textarea[aria-label^='Line ']", i, 'button[data-add="line"]');
   };
@@ -192,7 +206,7 @@ export function LinesBlock({
         <div ref={listRef} className="flex flex-col gap-3">
           {lines.map((text, i) => (
             <BulletEditorRow
-              key={`${itemId}-line-${i}`}
+              key={keysRef.current[i] || `${itemId}-line-${i}`}
               text={text}
               index={i}
               onChange={(v) => onChangeLine(i, v)}

@@ -6,7 +6,16 @@ import { inputClass } from "./TextInput";
 export interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> { minHeight?: number; bare?: boolean }
 // Fits the height to the text (the height only changes when the text needs a different one)
 function fitHeight(el: HTMLTextAreaElement, minHeight: number) {
-  el.style.height = "auto"; el.style.height = `${Math.max(minHeight, el.scrollHeight)}px`;
+  if (el.scrollHeight > el.clientHeight) {
+    el.style.height = `${Math.max(minHeight, el.scrollHeight)}px`;
+    return;
+  }
+  const currentHeight = el.style.height;
+  el.style.height = "auto";
+  const targetHeight = `${Math.max(minHeight, el.scrollHeight)}px`;
+  if (currentHeight !== targetHeight) {
+    el.style.height = targetHeight;
+  }
 }
 
 // Grows with its text, and fits again when its size changes (turning a phone changes the width and padding).

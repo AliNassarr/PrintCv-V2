@@ -27,9 +27,9 @@ type Tab = "overview" | "matcher" | "issues";
 
 // The ticks on the bar are the points where the label above the score changes (scoreLabel)
 const TICKS = [
-  { at: 30, label: "Good start" },
-  { at: 60, label: "Almost there" },
-  { at: 85, label: "Ready to send" },
+  { at: 30, label: "Good start", shortLabel: "Good" },
+  { at: 60, label: "Almost there", shortLabel: "Almost" },
+  { at: 85, label: "Ready to send", shortLabel: "Ready" },
 ];
 
 // The done mark from the section steps: a filled circle with a check, or an empty ring
@@ -129,8 +129,9 @@ export function ScoreEngineModal({
           <div aria-hidden="true" className="relative mt-1.5 h-4 whitespace-nowrap">
             {TICKS.map((t, i) => (
               <span key={t.at} style={{ left: `${t.at}%` }}
-                className={cx("absolute top-0 -translate-x-1/2", i === TICKS.length - 1 && "max-sm:left-auto max-sm:right-0 max-sm:translate-x-0")}>
-                {t.label}
+                className={cx("absolute top-0 -translate-x-1/2 text-app-sm", i === TICKS.length - 1 && "max-sm:left-auto max-sm:right-0 max-sm:translate-x-0")}>
+                <span className="hidden sm:inline">{t.label}</span>
+                <span className="sm:hidden text-[11px] leading-none">{t.shortLabel}</span>
               </span>
             ))}
           </div>

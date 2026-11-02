@@ -42,7 +42,7 @@ export function StudioTopBar({
   onLogout: () => void;
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 bg-ground px-4 lg:col-span-full lg:row-start-1 print:hidden">
+    <header className="flex h-12 shrink-0 items-center gap-2 sm:gap-3 bg-ground px-3 sm:px-4 lg:col-span-full lg:row-start-1 print:hidden">
       {/* Logo tile, then "PrintCV" from 1024px */}
       <div className="flex shrink-0 items-center gap-2 lg:pr-3">
         <span className="flex h-6 w-6 items-center justify-center rounded-control bg-mint">
@@ -57,13 +57,13 @@ export function StudioTopBar({
         <p className="hidden shrink-0 text-app-sm text-muted lg:block">Saved in this browser</p>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
         <button type="button" data-test-id="score-button" title="See your CV score" onClick={onOpenScore}
-          className="inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-control px-3 hover:bg-active sm:h-8 sm:min-w-0">
+          className="inline-flex h-11 min-w-9 items-center justify-center gap-1.5 rounded-control px-2 sm:px-3 hover:bg-active sm:h-8 sm:min-w-0">
           {/* Below md the bare number gets its scale; screen readers hear "out of 100" instead of "slash 100" */}
           <span className="text-app font-medium tabular-nums">
             {score}
-            <span className="font-normal text-muted md:hidden">
+            <span className="hidden min-[360px]:inline font-normal text-muted md:hidden">
               <span aria-hidden="true">/100</span>
               <span className="sr-only"> out of 100</span>
             </span>

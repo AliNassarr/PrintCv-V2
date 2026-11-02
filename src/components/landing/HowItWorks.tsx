@@ -57,7 +57,7 @@ function PageFit() {
           <span className={`${CONTROL} border border-control`}>Make it fit</span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <span className="flex gap-2">
+          <span className="flex flex-wrap items-center justify-end gap-2">
             <span className={`${CONTROL} border border-control`}><FileText className="h-4 w-4" />Word</span>
             <span className={`${CONTROL} bg-ink text-paper`}>Download PDF</span>
           </span>

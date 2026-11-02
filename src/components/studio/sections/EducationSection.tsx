@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useRef } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { useCVStore } from "@/lib/store/cv-store";
 import type { EducationState } from "@/types/resume";
 import { cx } from "@/lib/cx";
 import { Field } from "@/components/ui/Field";
 import { IconButton } from "@/components/ui/IconButton";
 import { TextInput } from "@/components/ui/TextInput";
+import type { UndoBufferItem } from "./types";
 import { ADD_ITEM, SectionTitle, SlotButton, focusAfterChange, plural } from "./parts";
 
 const STAGES: { id: EducationState; label: string; desc: string }[] = [
@@ -17,13 +18,14 @@ const STAGES: { id: EducationState; label: string; desc: string }[] = [
 ];
 
 // Education: where the student is at 42, then one card per school
-export function EducationSection() {
+export function EducationSection({ onSoftDelete }: { onSoftDelete?: (item: UndoBufferItem) => void }) {
   const cvData = useCVStore((s) => s.cvData);
   const setCVData = useCVStore((s) => s.setCVData);
   const setEducationState = useCVStore((s) => s.setEducationState);
   const addEducationItem = useCVStore((s) => s.addEducationItem);
   const updateEducationItem = useCVStore((s) => s.updateEducationItem);
   const removeEducationItem = useCVStore((s) => s.removeEducationItem);
+  const moveEducationItem = useCVStore((s) => s.moveEducationItem);
   const rootRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -69,13 +71,32 @@ export function EducationSection() {
             <div className="flex min-h-12 items-center gap-1 pl-4 pr-2">
               <h2 className="min-w-0 flex-1 truncate text-app-md font-medium text-ink">{edu.institution || "New school"}</h2>
               {cvData.education.length > 1 && (
-                <IconButton label="Remove school" onClick={() => {
-                  removeEducationItem(edu.id);
-                  // With one school left there is no Remove button, so focus goes to its School box
-                  focusAfterChange(rootRef.current, 'button[aria-label="Remove school"]', eduIdx, 'input[id$="-inst"]', ADD_ITEM);
-                }}>
-                  <Trash2 className="h-4 w-4" />
-                </IconButton>
+                <div className="flex items-center gap-1">
+                  {eduIdx > 0 && (
+                    <IconButton label="Move school up" onClick={() => moveEducationItem(eduIdx, "up")}>
+                      <ChevronUp className="h-4 w-4" />
+                    </IconButton>
+                  )}
+                  {eduIdx < cvData.education.length - 1 && (
+                    <IconButton label="Move school down" onClick={() => moveEducationItem(eduIdx, "down")}>
+                      <ChevronDown className="h-4 w-4" />
+                    </IconButton>
+                  )}
+                  <IconButton label="Remove school" onClick={() => {
+                    removeEducationItem(edu.id);
+                    onSoftDelete?.({
+                      id: edu.id,
+                      type: "education",
+                      label: edu.institution || "School",
+                      item: edu,
+                      index: eduIdx,
+                    });
+                    // With one school left there is no Remove button, so focus goes to its School box
+                    focusAfterChange(rootRef.current, 'button[aria-label="Remove school"]', eduIdx, 'input[id$="-inst"]', ADD_ITEM);
+                  }}>
+                    <Trash2 className="h-4 w-4" />
+                  </IconButton>
+                </div>
               )}
             </div>
             <div className="grid grid-cols-1 gap-4 border-t border-rule px-4 pb-4 pt-4 sm:grid-cols-2">

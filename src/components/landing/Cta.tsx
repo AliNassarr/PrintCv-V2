@@ -10,9 +10,9 @@ export function Cta() {
     <section id="start" aria-labelledby="start-title" className={`pb-12 md:pb-20 lg:pb-24 ${WRAP}`}>
       <div className={`${GRID} gap-y-10 rounded-xl border border-line bg-paper p-6 md:grid-cols-12 md:p-10 lg:p-14`}>
         <div data-reveal="" style={at(0)} className="md:col-span-6">
-          <p id="start-title" className="max-w-[30ch] text-step-lead font-medium">
+          <h2 id="start-title" className="max-w-[30ch] text-step-lead font-medium">
             You already did the hard part: the projects. Now put them on one page.
-          </p>
+          </h2>
           <a href="/api/auth/42/login"
             className={`mt-8 ${ACTION} h-12 px-6 text-step-body`}>
             Log in with 42
@@ -20,7 +20,7 @@ export function Cta() {
         </div>
         <div data-reveal="" style={at(1)} className="space-y-1 text-step-small text-muted md:col-span-6 md:col-start-7 md:self-end">
           <p>Free. No card. Your CV stays in your browser.</p>
-          <p>Not at 42? Open the editor and fill it in by hand.</p>
+          <p>Not at 42? <a href="/studio" className="underline underline-offset-4 text-ink hover:text-accent">Open the editor</a> and fill it in by hand.</p>
         </div>
       </div>
     </section>

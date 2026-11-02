@@ -9,7 +9,7 @@ export function ScoreReceipt() {
   const score = scoreCV(cv, { fitsOnePage: true, allowSampleLines: true });
   const tips = score.groups.flatMap((g) => g.checks).map((c) => c.tip).filter((t): t is string => Boolean(t));
   return (
-    <div data-ui="" className="w-[300px] rounded-card border border-line bg-paper p-5 font-sans text-ink">
+    <div data-ui="" className="w-full max-w-[300px] rounded-card border border-line bg-paper p-4 sm:p-5 font-sans text-ink">
       <p className="text-app-sm text-muted">CV score for {cv.contact.fullName}</p>
       <p className="mt-1 flex items-baseline gap-1">
         <span className="text-app-kpi tabular-nums">{score.total}</span>

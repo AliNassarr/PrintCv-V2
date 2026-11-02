@@ -24,25 +24,25 @@ export function ContactSection({ score }: { score: CvScore }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field id="contact-full-name" label="Full name *">
           {(a11y) => (
-            <TextInput {...a11y} type="text" value={cvData.contact.fullName || ""} placeholder="e.g. Alex Morgan" autoComplete="name"
+            <TextInput {...a11y} type="text" required aria-required="true" value={cvData.contact.fullName || ""} placeholder="e.g. Alex Morgan" autoComplete="name"
               onChange={(e) => updateContact({ fullName: e.target.value })} />
           )}
         </Field>
         <Field id="contact-target-role" label="Job you want *">
           {(a11y) => (
-            <TextInput {...a11y} type="text" value={cvData.targetRole || ""} placeholder="e.g. Software developer"
+            <TextInput {...a11y} type="text" required aria-required="true" value={cvData.targetRole || ""} placeholder="e.g. Software developer"
               onChange={(e) => setCVData({ ...cvData, targetRole: e.target.value })} />
           )}
         </Field>
         <Field id="contact-email" label="Email *">
           {(a11y) => (
-            <TextInput {...a11y} type="email" value={cvData.contact.email || ""} placeholder="e.g. your.name@gmail.com" autoComplete="email"
+            <TextInput {...a11y} type="email" required aria-required="true" value={cvData.contact.email || ""} placeholder="e.g. your.name@gmail.com" autoComplete="email"
               onChange={(e) => updateContact({ email: e.target.value })} />
           )}
         </Field>
         <Field id="contact-phone" label="Phone *">
           {(a11y) => (
-            <TextInput {...a11y} type="text" value={cvData.contact.phoneNumber || ""} placeholder="e.g. +1 555 123 4567" autoComplete="tel"
+            <TextInput {...a11y} type="text" required aria-required="true" value={cvData.contact.phoneNumber || ""} placeholder="e.g. +1 555 123 4567" autoComplete="tel"
               onChange={(e) => updateContact({ phoneNumber: e.target.value })} />
           )}
         </Field>
@@ -57,13 +57,15 @@ export function ContactSection({ score }: { score: CvScore }) {
         <Field id="contact-github" label="GitHub">
           {(a11y) => (
             <TextInput {...a11y} type="text" value={cvData.contact.githubUrl || ""} placeholder="github.com/username"
-              onChange={(e) => updateContact({ githubUrl: normalizeGitHub(e.target.value) })} />
+              onChange={(e) => updateContact({ githubUrl: e.target.value })}
+              onBlur={(e) => updateContact({ githubUrl: normalizeGitHub(e.target.value) })} />
           )}
         </Field>
         <Field id="contact-linkedin" label="LinkedIn">
           {(a11y) => (
             <TextInput {...a11y} type="text" value={cvData.contact.linkedinUrl || ""} placeholder="linkedin.com/in/username"
-              onChange={(e) => updateContact({ linkedinUrl: normalizeLinkedIn(e.target.value) })} />
+              onChange={(e) => updateContact({ linkedinUrl: e.target.value })}
+              onBlur={(e) => updateContact({ linkedinUrl: normalizeLinkedIn(e.target.value) })} />
           )}
         </Field>
       </div>

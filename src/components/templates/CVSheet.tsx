@@ -48,8 +48,10 @@ export type TemplateSectionId =
   | "extracurriculars";
 
 
-// 1027px printable A4 vertical budget at 96 DPI
+// 1027px printable A4 vertical budget at 96 DPI (normal density: 297mm - 24mm = 273mm; compact: 297mm - 20mm = 277mm)
 export const PRINTABLE_BUDGET_PX = 1027;
+export const getPrintableBudgetPx = (density?: "compact" | "standard" | string) =>
+  density === "compact" ? 1047 : 1027;
 
 export interface CVSheetProps {
   data: CVData;
@@ -90,7 +92,7 @@ export function CVSheet({
 
   const NameTag = nameAs ?? "h1";
 
-  const fontPrimary = "'Calibri', 'Arial', sans-serif";
+  const fontPrimary = "'Calibri', 'Calibri Fallback', 'Arial', sans-serif";
 
   const mainEducation = education?.find((e) => e.id === MAIN_EDUCATION_ID);
   const otherEducation = (education || []).filter((e) => e.id !== MAIN_EDUCATION_ID);
@@ -113,6 +115,15 @@ export function CVSheet({
     { text: stripProtocol(contact.githubUrl), isLink: true },
   ].filter((item) => item.text);
 
+  const HeadingTag = (dataUi ? "div" : "h2") as React.ElementType;
+
+  const sectionClass = (extra: string = "") =>
+    `group relative ${extra} ${
+      onSectionClick
+        ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink focus-visible:outline-offset-1 rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
+        : ""
+    }`;
+
   const renderEducation = () => {
     if (!mainEducation && otherEducation.length === 0) return null;
     const mainTitle = mainEducation
@@ -126,12 +137,12 @@ export function CVSheet({
     return (
     <section
       key="education"
+      role={onSectionClick ? "button" : undefined}
+      tabIndex={onSectionClick ? 0 : undefined}
+      aria-label={onSectionClick ? "Edit education section" : undefined}
       onClick={onSectionClick ? () => onSectionClick("education") : undefined}
-      className={`group relative ${isCompact ? "mb-2" : "mb-3"} ${
-        onSectionClick
-          ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
-          : ""
-      }`}
+      onKeyDown={onSectionClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectionClick("education"); } } : undefined}
+      className={sectionClass(isCompact ? "mb-2" : "mb-3")}
     >
       {onSectionClick && (
         <span className="absolute top-0 right-1 hidden group-hover:inline-flex group-focus-within:inline-flex text-[12px] font-medium font-sans bg-ink text-paper px-1.5 py-0.5 rounded-control pointer-events-none print:hidden">
@@ -139,14 +150,14 @@ export function CVSheet({
         </span>
       )}
 
-      <div
+      <HeadingTag
         className={`font-bold uppercase tracking-wider text-gray-900 border-b border-gray-800 pb-0.5 ${
           isCompact ? "mb-1" : "mb-1.5"
         }`}
         style={{ fontSize: isCompact ? "10pt" : "10.5pt" }}
       >
         Education
-      </div>
+      </HeadingTag>
 
       {/* Main school entry (id "edu-main"), program line comes from the entry itself */}
       {mainEducation && (
@@ -219,12 +230,12 @@ export function CVSheet({
     return (
       <section
         key="experience"
+        role={onSectionClick ? "button" : undefined}
+        tabIndex={onSectionClick ? 0 : undefined}
+        aria-label={onSectionClick ? "Edit experience section" : undefined}
         onClick={onSectionClick ? () => onSectionClick("experience") : undefined}
-        className={`group relative ${isCompact ? "mb-2" : "mb-3"} ${
-          onSectionClick
-            ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
-            : ""
-        }`}
+        onKeyDown={onSectionClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectionClick("experience"); } } : undefined}
+        className={sectionClass(isCompact ? "mb-2" : "mb-3")}
       >
         {onSectionClick && (
           <span className="absolute top-0 right-1 hidden group-hover:inline-flex group-focus-within:inline-flex text-[12px] font-medium font-sans bg-ink text-paper px-1.5 py-0.5 rounded-control pointer-events-none print:hidden">
@@ -232,14 +243,14 @@ export function CVSheet({
           </span>
         )}
 
-        <div
+        <HeadingTag
           className={`font-bold uppercase tracking-wider text-gray-900 border-b border-gray-800 pb-0.5 ${
             isCompact ? "mb-1" : "mb-1.5"
           }`}
           style={{ fontSize: isCompact ? "10pt" : "10.5pt" }}
         >
           Experience
-        </div>
+        </HeadingTag>
 
         {experience.map((exp) => {
           const dates = formatDateRange(exp.startDate, exp.endDate, exp.isCurrent);
@@ -292,12 +303,12 @@ export function CVSheet({
     return (
       <section
         key="projects"
+        role={onSectionClick ? "button" : undefined}
+        tabIndex={onSectionClick ? 0 : undefined}
+        aria-label={onSectionClick ? "Edit selected projects section" : undefined}
         onClick={onSectionClick ? () => onSectionClick("projects") : undefined}
-        className={`group relative ${isCompact ? "mb-2" : "mb-3"} ${
-          onSectionClick
-            ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
-            : ""
-        }`}
+        onKeyDown={onSectionClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectionClick("projects"); } } : undefined}
+        className={sectionClass(isCompact ? "mb-2" : "mb-3")}
       >
         {onSectionClick && (
           <span className="absolute top-0 right-1 hidden group-hover:inline-flex group-focus-within:inline-flex text-[12px] font-medium font-sans bg-ink text-paper px-1.5 py-0.5 rounded-control pointer-events-none print:hidden">
@@ -305,14 +316,14 @@ export function CVSheet({
           </span>
         )}
 
-        <div
+        <HeadingTag
           className={`font-bold uppercase tracking-wider text-gray-900 border-b border-gray-800 pb-0.5 ${
             isCompact ? "mb-1" : "mb-1.5"
           }`}
           style={{ fontSize: isCompact ? "10pt" : "10.5pt" }}
         >
           Selected Projects
-        </div>
+        </HeadingTag>
 
         {projects.map((proj) => {
           const cleanTitle = proj.name.includes("|") ? proj.name.split("|")[0].trim() : proj.name;
@@ -378,12 +389,12 @@ export function CVSheet({
     return (
       <section
         key="skills"
+        role={onSectionClick ? "button" : undefined}
+        tabIndex={onSectionClick ? 0 : undefined}
+        aria-label={onSectionClick ? "Edit technical skills section" : undefined}
         onClick={onSectionClick ? () => onSectionClick("skills") : undefined}
-        className={`group relative ${isCompact ? "mb-2" : "mb-3"} ${
-          onSectionClick
-            ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
-            : ""
-        }`}
+        onKeyDown={onSectionClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectionClick("skills"); } } : undefined}
+        className={sectionClass(isCompact ? "mb-2" : "mb-3")}
       >
         {onSectionClick && (
           <span className="absolute top-0 right-1 hidden group-hover:inline-flex group-focus-within:inline-flex text-[12px] font-medium font-sans bg-ink text-paper px-1.5 py-0.5 rounded-control pointer-events-none print:hidden">
@@ -391,14 +402,14 @@ export function CVSheet({
           </span>
         )}
 
-        <div
+        <HeadingTag
           className={`font-bold uppercase tracking-wider text-gray-900 border-b border-gray-800 pb-0.5 ${
             isCompact ? "mb-1" : "mb-1.5"
           }`}
           style={{ fontSize: isCompact ? "10pt" : "10.5pt" }}
         >
           Technical Skills
-        </div>
+        </HeadingTag>
 
         <div
           className={isCompact ? "space-y-0 text-gray-800" : "space-y-0.5 text-gray-800"}
@@ -420,12 +431,12 @@ export function CVSheet({
     return (
       <section
         key="coursework"
+        role={onSectionClick ? "button" : undefined}
+        tabIndex={onSectionClick ? 0 : undefined}
+        aria-label={onSectionClick ? "Edit coursework section" : undefined}
         onClick={onSectionClick ? () => onSectionClick("coursework") : undefined}
-        className={`group relative ${isCompact ? "mb-2" : "mb-3"} ${
-          onSectionClick
-            ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
-            : ""
-        }`}
+        onKeyDown={onSectionClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectionClick("coursework"); } } : undefined}
+        className={sectionClass(isCompact ? "mb-2" : "mb-3")}
       >
         {onSectionClick && (
           <span className="absolute top-0 right-1 hidden group-hover:inline-flex group-focus-within:inline-flex text-[12px] font-medium font-sans bg-ink text-paper px-1.5 py-0.5 rounded-control pointer-events-none print:hidden">
@@ -433,14 +444,14 @@ export function CVSheet({
           </span>
         )}
 
-        <div
+        <HeadingTag
           className={`font-bold uppercase tracking-wider text-gray-900 border-b border-gray-800 pb-0.5 ${
             isCompact ? "mb-1" : "mb-1.5"
           }`}
           style={{ fontSize: isCompact ? "10pt" : "10.5pt" }}
         >
           Relevant Coursework and Workshops
-        </div>
+        </HeadingTag>
 
         <ul
           className={isCompact ? "list-disc ml-4 space-y-0 text-gray-800" : "list-disc ml-5 space-y-0.5 text-gray-800"}
@@ -468,12 +479,12 @@ export function CVSheet({
     return (
       <section
         key="extracurriculars"
+        role={onSectionClick ? "button" : undefined}
+        tabIndex={onSectionClick ? 0 : undefined}
+        aria-label={onSectionClick ? "Edit extracurricular activities section" : undefined}
         onClick={onSectionClick ? () => onSectionClick("extracurriculars") : undefined}
-        className={`group relative ${isCompact ? "mb-2" : "mb-3"} ${
-          onSectionClick
-            ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
-            : ""
-        }`}
+        onKeyDown={onSectionClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectionClick("extracurriculars"); } } : undefined}
+        className={sectionClass(isCompact ? "mb-2" : "mb-3")}
       >
         {onSectionClick && (
           <span className="absolute top-0 right-1 hidden group-hover:inline-flex group-focus-within:inline-flex text-[12px] font-medium font-sans bg-ink text-paper px-1.5 py-0.5 rounded-control pointer-events-none print:hidden">
@@ -481,14 +492,14 @@ export function CVSheet({
           </span>
         )}
 
-        <div
+        <HeadingTag
           className={`font-bold uppercase tracking-wider text-gray-900 border-b border-gray-800 pb-0.5 ${
             isCompact ? "mb-1" : "mb-1.5"
           }`}
           style={{ fontSize: isCompact ? "10pt" : "10.5pt" }}
         >
           Extracurricular Activities
-        </div>
+        </HeadingTag>
 
         {extracurriculars.map((ec) => {
           const ecBullets = nonEmptyBullets(ec.bulletPoints);
@@ -564,12 +575,12 @@ export function CVSheet({
       {/* HEADER: Centered Name, Subtitle, Contact Strip                 */}
       {/* ============================================================== */}
       <header
+        role={onSectionClick ? "button" : undefined}
+        tabIndex={onSectionClick ? 0 : undefined}
+        aria-label={onSectionClick ? "Edit contact information" : undefined}
         onClick={onSectionClick ? () => onSectionClick("contact") : undefined}
-        className={`group relative ${isCompact ? "text-center mb-2.5 pb-0.5" : "text-center mb-4 pb-1"} ${
-          onSectionClick
-            ? "cursor-pointer hover:outline hover:outline-1 hover:outline-ink hover:bg-raised rounded transition-all print:cursor-default print:outline-none print:bg-transparent"
-            : ""
-        }`}
+        onKeyDown={onSectionClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSectionClick("contact"); } } : undefined}
+        className={sectionClass(isCompact ? "text-center mb-2.5 pb-0.5" : "text-center mb-4 pb-1")}
       >
         {onSectionClick && (
           <span className="absolute top-0 right-1 hidden group-hover:inline-flex group-focus-within:inline-flex text-[12px] font-medium font-sans bg-ink text-paper px-1.5 py-0.5 rounded-control pointer-events-none print:hidden">

@@ -33,25 +33,8 @@ import {
 
 export type WizardStep = "LOGIN" | "SETUP" | "QUESTIONNAIRE" | "EDITOR";
 
-export function normalizeLinkedIn(val: string): string {
-  if (!val) return "";
-  let cleaned = val.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "");
-  while (/^linkedin\.com\/(in\/)?/i.test(cleaned)) {
-    cleaned = cleaned.replace(/^linkedin\.com\/(in\/)?/i, "");
-  }
-  cleaned = cleaned.replace(/\/+$/, "").replace(/\?.*$/, "");
-  return cleaned ? `linkedin.com/in/${cleaned}` : "";
-}
-
-export function normalizeGitHub(val: string): string {
-  if (!val) return "";
-  let cleaned = val.trim().replace(/^https?:\/\//i, "").replace(/^www\./i, "");
-  while (/^github\.com\//i.test(cleaned)) {
-    cleaned = cleaned.replace(/^github\.com\//i, "");
-  }
-  cleaned = cleaned.replace(/\/+$/, "").replace(/\?.*$/, "");
-  return cleaned ? `github.com/${cleaned}` : "";
-}
+import { normalizeLinkedIn, normalizeGitHub } from "@/lib/sanitizer";
+export { normalizeLinkedIn, normalizeGitHub };
 
 export interface ParsedCVData {
   contact?: {
@@ -201,6 +184,8 @@ interface CVStore {
   addEducationItem: (item?: Partial<EducationItem>) => void;
   updateEducationItem: (id: string, patch: Partial<EducationItem>) => void;
   removeEducationItem: (id: string) => void;
+  restoreEducationAt: (item: EducationItem, index: number) => void;
+  moveEducationItem: (index: number, direction: "up" | "down") => void;
 
   // Coursework Mutations
   addCourseworkItem: (item?: Partial<CourseworkItem>) => void;
@@ -211,6 +196,7 @@ interface CVStore {
   addExtracurricularItem: (item?: Partial<ExtracurricularItem>) => void;
   updateExtracurricularItem: (id: string, patch: Partial<ExtracurricularItem>) => void;
   removeExtracurricularItem: (id: string) => void;
+  restoreExtracurricularAt: (item: ExtracurricularItem, index: number) => void;
   addExtracurricularBullet: (id: string, text?: string) => void;
   updateExtracurricularBullet: (id: string, bulletIndex: number, text: string) => void;
   removeExtracurricularBullet: (id: string, bulletIndex: number) => void;
@@ -780,6 +766,30 @@ export const useCVStore = create<CVStore>()(
           },
         })),
 
+      restoreEducationAt: (item, index) =>
+        set((state) => {
+          const list = [...state.cvData.education];
+          const insertIdx = Math.max(0, Math.min(index, list.length));
+          list.splice(insertIdx, 0, item);
+          return {
+            lastSavedTimestamp: Date.now(),
+            cvData: { ...state.cvData, education: list },
+          };
+        }),
+
+      moveEducationItem: (index, direction) =>
+        set((state) => {
+          const targetIndex = direction === "up" ? index - 1 : index + 1;
+          if (targetIndex < 0 || targetIndex >= state.cvData.education.length) return state;
+          const list = [...state.cvData.education];
+          const [moved] = list.splice(index, 1);
+          list.splice(targetIndex, 0, moved);
+          return {
+            lastSavedTimestamp: Date.now(),
+            cvData: { ...state.cvData, education: list },
+          };
+        }),
+
       // Coursework Mutations
       addCourseworkItem: (item) =>
         set((state) => {
@@ -860,6 +870,22 @@ export const useCVStore = create<CVStore>()(
             extracurriculars: (state.cvData.extracurriculars || []).filter((ec) => ec.id !== id),
           },
         })),
+
+      restoreExtracurricularAt: (item, index) =>
+        set((state) => {
+          const list = [...(state.cvData.extracurriculars || [])];
+          const insertIdx = Math.max(0, Math.min(index, list.length));
+          list.splice(insertIdx, 0, item);
+          return {
+            showExtracurriculars: true,
+            lastSavedTimestamp: Date.now(),
+            cvData: {
+              ...state.cvData,
+              showExtracurriculars: true,
+              extracurriculars: list,
+            },
+          };
+        }),
 
       addExtracurricularBullet: (id, text = "") =>
         set((state) => ({
@@ -1233,9 +1259,12 @@ export const useCVStore = create<CVStore>()(
 );
 
 export function useHasHydrated() {
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const storeHydrated = useCVStore((s) => s.hasHydrated);
+
   useEffect(() => {
-    setHasHydrated(true);
+    setMounted(true);
   }, []);
-  return hasHydrated;
+
+  return mounted && storeHydrated;
 }

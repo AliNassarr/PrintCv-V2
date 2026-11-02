@@ -11,7 +11,7 @@ import type { SectionProps } from "./types";
 import { ADD_ITEM, EmptySlot, ItemPill, LinesBlock, SectionTitle, SlotButton, focusAfterChange, plural } from "./parts";
 
 // Courses and activities. Courses always print; activities print only when "Show on CV" is on.
-export function ActivitiesSection({ onOpenHelper }: Pick<SectionProps, "onOpenHelper">) {
+export function ActivitiesSection({ onOpenHelper, onSoftDelete }: Pick<SectionProps, "onOpenHelper" | "onSoftDelete">) {
   const coursework = useCVStore((s) => s.cvData.coursework) || [];
   const extracurriculars = useCVStore((s) => s.cvData.extracurriculars) || [];
   const showExtracurriculars = useCVStore((s) => s.cvData.showExtracurriculars);
@@ -89,6 +89,13 @@ export function ActivitiesSection({ onOpenHelper }: Pick<SectionProps, "onOpenHe
                   <ItemPill lines={act.bulletPoints} />
                   <IconButton label="Remove activity" onClick={() => {
                     removeExtracurricularItem(act.id);
+                    onSoftDelete?.({
+                      id: act.id,
+                      type: "activity",
+                      label: act.role ? `${act.role} at ${act.organization}` : act.organization || "Activity",
+                      item: act,
+                      index: actIdx,
+                    });
                     focusAfterChange(activitiesRef.current, 'button[aria-label="Remove activity"]', actIdx, ADD_ITEM);
                   }}>
                     <Trash2 className="h-4 w-4" />

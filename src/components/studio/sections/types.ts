@@ -3,7 +3,7 @@ import type { HelperTarget } from "@/lib/bullet-helper";
 // A removed project or job, kept for its Undo toast (the toast stays until Undo, Close or the next removal)
 export interface UndoBufferItem {
   id: string;
-  type: "project" | "experience";
+  type: "project" | "experience" | "education" | "activity";
   label: string;
   item: any;
   index: number;

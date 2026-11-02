@@ -55,6 +55,7 @@ export const DEMO_CV: CVData = {
   }),
   contact: { fullName: "Ines Varga", level: "7.84", email: "ines.varga@example.org", phoneNumber: "+1 555 0103", githubUrl: "", linkedinUrl: "", location: "" },
   showExperience: true,
+  styleDensity: "compact",
   education: [
     { id: MAIN_EDUCATION_ID, institution: "42", program: "Common core", startDate: "2024", endDate: "Present", isCurrent: true, state: "STATE_A_CORE" },
     { id: "d-school", institution: "Riverside High School", program: "", degree: "High school diploma, science track", startDate: "2019", endDate: "2022", isCurrent: false, state: "STATE_A_CORE" },

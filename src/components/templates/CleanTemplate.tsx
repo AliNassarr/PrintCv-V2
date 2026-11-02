@@ -1,8 +1,8 @@
 "use client";
 
-import React, { forwardRef, useRef, useEffect, useState } from "react";
+import React, { forwardRef, useRef, useEffect, useState, useCallback } from "react";
 import { CVData } from "@/types/resume";
-import { CVSheet, PRINTABLE_BUDGET_PX, type HeightBudget, type TemplateSectionId } from "./CVSheet";
+import { CVSheet, getPrintableBudgetPx, type HeightBudget, type TemplateSectionId } from "./CVSheet";
 
 export type { HeightBudget, TemplateSectionId } from "./CVSheet";
 
@@ -22,39 +22,60 @@ export const CleanTemplate = forwardRef<HTMLDivElement, CleanTemplateProps>(
     const innerContentRef = useRef<HTMLDivElement>(null);
     const onHeightBudgetChangeRef = useRef(onHeightBudgetChange);
     onHeightBudgetChangeRef.current = onHeightBudgetChange;
+    const styleDensityRef = useRef(data.styleDensity);
+    styleDensityRef.current = data.styleDensity;
 
     const [isInternalOverflow, setIsInternalOverflow] = useState(false);
+    const lastHeightRef = useRef<number>(-1);
 
-    // Measure the CV height as it changes, to know if it fits on 1 page
-    useEffect(() => {
+    const calculateBudget = useCallback(() => {
       if (!innerContentRef.current) return;
+      const budgetPx = getPrintableBudgetPx(styleDensityRef.current);
+      const height = innerContentRef.current.scrollHeight;
+      if (height === lastHeightRef.current) return;
+      lastHeightRef.current = height;
 
-      const calculateBudget = () => {
-        if (!innerContentRef.current) return;
-        const height = innerContentRef.current.scrollHeight;
-        const percentage = Math.round((height / PRINTABLE_BUDGET_PX) * 100);
-        const isOverflow = height > PRINTABLE_BUDGET_PX;
-        setIsInternalOverflow(isOverflow);
+      const percentage = Math.round((height / budgetPx) * 100);
+      const isOverflow = height > budgetPx;
+      setIsInternalOverflow(isOverflow);
 
-        if (onHeightBudgetChangeRef.current) {
-          onHeightBudgetChangeRef.current({
-            height,
-            printableBudget: PRINTABLE_BUDGET_PX,
-            percentage,
-            isOverflow,
-          });
-        }
+      if (onHeightBudgetChangeRef.current) {
+        onHeightBudgetChangeRef.current({
+          height,
+          printableBudget: budgetPx,
+          percentage,
+          isOverflow,
+        });
+      }
+    }, []);
+
+    // Stable observer: observe once, debounce layout measurements with requestAnimationFrame
+    useEffect(() => {
+      const el = innerContentRef.current;
+      if (!el || typeof ResizeObserver === "undefined") return;
+
+      let rafId = 0;
+      const scheduleCalculate = () => {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(calculateBudget);
       };
 
-      calculateBudget();
+      scheduleCalculate();
 
-      const observer = new ResizeObserver(() => {
-        calculateBudget();
-      });
+      const observer = new ResizeObserver(scheduleCalculate);
+      observer.observe(el);
 
-      observer.observe(innerContentRef.current);
-      return () => observer.disconnect();
-    }, [data]);
+      return () => {
+        cancelAnimationFrame(rafId);
+        observer.disconnect();
+      };
+    }, [calculateBudget]);
+
+    // When data changes, schedule a rAF measurement
+    useEffect(() => {
+      const rafId = requestAnimationFrame(calculateBudget);
+      return () => cancelAnimationFrame(rafId);
+    }, [data, calculateBudget]);
 
     const isOverflow = forceOverflowIndicator ?? isInternalOverflow;
 

@@ -75,12 +75,12 @@ export function BulletEditorRow({ text, index, onChange, onDelete, onMoveUp, onM
           className="block py-2.5 sm:py-0"
         />
         {/* The pills wrap inside their own box, so the count and the icons stay on the first row, even at 390px */}
-        <div className="mt-1 flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 sm:gap-2">
             {check.goodStart && <Pill tone="positive">Strong start</Pill>}
             {check.number && <Pill tone="neutral">Has a number</Pill>}
           </div>
-          <div className="-mr-2 flex shrink-0 items-center">
+          <div className="-mr-1 flex shrink-0 items-center sm:-mr-2">
             <span className={`mr-2 text-app-sm tabular-nums ${check.tooLong ? "font-medium text-warn" : "text-muted"}`}>
               {check.length}/{MAX_BULLET_LENGTH}
             </span>

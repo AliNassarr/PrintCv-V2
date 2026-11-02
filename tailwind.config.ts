@@ -18,7 +18,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Jost", '"Jost Fallback"', "system-ui", '"Segoe UI"', "Arial", "sans-serif"],
-        display: ['"Bodoni Moda"', '"Bodoni Moda Fallback"', "Didot", "Georgia", "serif"],
+        display: ["Jost", '"Jost Fallback"', "system-ui", '"Segoe UI"', "Arial", "sans-serif"],
       },
       fontSize: {
         // landing: exactly five steps (§3). No other landing size exists.

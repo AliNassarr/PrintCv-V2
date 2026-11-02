@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
-import { CVSheet } from "@/components/templates/CVSheet";
 import { DEMO_CV } from "@/lib/sample-cv";
 import { ACTION, FLOW, GRID, WRAP } from "./frame";
 
@@ -58,10 +57,19 @@ export function Hero() {
             <p id="hero-window">Sample CV: {DEMO_CV.contact.fullName}</p>
           </div>
           <div className="bg-stage p-4 md:p-6">
-            <div className="relative mx-auto aspect-[210/297] max-w-[480px] overflow-hidden bg-paper [container-type:inline-size] [--sheet-scale:tan(atan2(100cqw,793.7px))]">
-              <div className="absolute left-0 top-0 origin-top-left" style={{ transform: "scale(var(--sheet-scale))" }}>
-                <CVSheet data={DEMO_CV} nameAs="p" dataUi />
-              </div>
+            <div className="mx-auto max-w-[480px]">
+              <picture>
+                <source srcSet="/landing/sample-cv.webp" type="image/webp" />
+                <img
+                  src="/landing/sample-cv.png"
+                  alt={`Sample CV for ${DEMO_CV.contact.fullName}, ${DEMO_CV.targetRole}, on one clean A4 page`}
+                  width={794}
+                  height={1123}
+                  className="block h-auto w-full rounded-card border border-line bg-paper shadow-sm"
+                  loading="eager"
+                  decoding="async"
+                />
+              </picture>
             </div>
           </div>
         </figure>

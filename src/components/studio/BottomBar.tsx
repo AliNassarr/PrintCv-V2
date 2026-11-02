@@ -18,13 +18,18 @@ export function BottomBar({ pane, onPane, overflowPercent }: {
   );
   // A named region, so a screen reader can jump to it like the rest of the page
   return (
-    <section aria-label="Edit or preview" className="fixed inset-x-0 bottom-0 z-30 h-[calc(56px+env(safe-area-inset-bottom))] border-t border-edge bg-ground px-4 pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden">
-      <div className="flex h-14 items-center justify-between gap-3">
+    <section aria-label="Edit or preview" className="fixed inset-x-0 bottom-0 z-30 h-[calc(56px+env(safe-area-inset-bottom))] border-t border-edge bg-ground px-3 sm:px-4 pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden">
+      <div className="flex h-14 items-center justify-between gap-2">
         <div role="group" aria-label="Show" className="flex rounded-control bg-active p-0.5">
           {option("edit", "Edit")}
           {option("preview", "Preview")}
         </div>
-        {overflowPercent !== null && <Pill tone="negative">Longer than 1 page · {overflowPercent}%</Pill>}
+        {overflowPercent !== null && (
+          <Pill tone="negative">
+            <span className="hidden sm:inline">Longer than 1 page</span>
+            <span className="sm:hidden">&gt;1 page</span> · {overflowPercent}%
+          </Pill>
+        )}
       </div>
     </section>
   );

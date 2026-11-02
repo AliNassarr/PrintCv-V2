@@ -2,11 +2,14 @@
 import { useEffect, useState } from "react";
 import { downloadSavedDraft, readSavedDraft, startAgain } from "@/lib/draft-rescue";
 
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const [hasDraft, setHasDraft] = useState(false);
-  useEffect(() => setHasDraft(Boolean(readSavedDraft())), []);
+  useEffect(() => {
+    console.error("PrintCV global error", error);
+    setHasDraft(Boolean(readSavedDraft()));
+  }, [error]);
   const btn = { height: 44, padding: "0 16px", borderRadius: 6, font: "500 15px Jost, Arial, sans-serif", cursor: "pointer" } as const;
-  const plain = { ...btn, background: "#ffffff", color: "#232323", border: "1px solid #d6d6d6" } as const;
+  const plain = { ...btn, background: "#ffffff", color: "#232323", border: "1px solid #8c8c8c" } as const;
   const text = { margin: "8px 0 0", fontSize: 15, lineHeight: "22px", color: "#666666" } as const;
   return (
     <html lang="en">
