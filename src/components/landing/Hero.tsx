@@ -58,18 +58,15 @@ export function Hero() {
           </div>
           <div className="bg-stage p-4 md:p-6">
             <div className="mx-auto max-w-[480px]">
-              <picture>
-                <source srcSet="/landing/sample-cv.webp" type="image/webp" />
-                <img
-                  src="/landing/sample-cv.png"
-                  alt={`Sample CV for ${DEMO_CV.contact.fullName}, ${DEMO_CV.targetRole}, on one clean A4 page`}
-                  width={794}
-                  height={1123}
-                  className="block h-auto w-full rounded-card border border-line bg-paper shadow-sm"
-                  loading="eager"
-                  decoding="async"
-                />
-              </picture>
+              <img
+                src="/landing/sample-cv.webp"
+                alt={`Sample CV for ${DEMO_CV.contact.fullName}, ${DEMO_CV.targetRole}, on one clean A4 page`}
+                width={794}
+                height={1123}
+                className="block h-auto w-full rounded-card border border-line bg-paper shadow-sm"
+                loading="eager"
+                decoding="async"
+              />
             </div>
           </div>
         </figure>
