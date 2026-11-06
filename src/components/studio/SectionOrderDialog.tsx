@@ -4,6 +4,7 @@ import React, { useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useCVStore } from "@/lib/store/cv-store";
 import { SectionId, DEFAULT_SECTION_ORDER } from "@/types/resume";
+import { DR_WISSAM_SECTION_ORDER } from "@/lib/template-constants";
 import { cx } from "@/lib/cx";
 import { DialogFrame } from "@/components/ui/DialogFrame";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +27,7 @@ type Dir = "up" | "down";
 export function SectionOrderDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const sectionOrder = useCVStore((s) => s.cvData.sectionOrder);
   const moveSection = useCVStore((s) => s.moveSection);
+  const setSectionOrder = useCVStore((s) => s.setSectionOrder);
   const order = sectionOrder || DEFAULT_SECTION_ORDER;
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const [moved, setMoved] = useState<{ id: SectionId; dir: Dir } | null>(null);
@@ -54,7 +56,24 @@ export function SectionOrderDialog({ open, onClose }: { open: boolean; onClose: 
     <DialogFrame open={open} onClose={close} title="Change section order" titleId="section-order-title" width={440}
       closeLabel="Close the order window"
       description="Choose which part of your CV comes first. You see the change right away."
-      footer={<div className="flex justify-end"><Button variant="primary" onClick={close}>Done</Button></div>}>
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSectionOrder([...DR_WISSAM_SECTION_ORDER]);
+              setMoved(null);
+              setSaid("Section order reset to Dr. Wissam Template.");
+            }}
+          >
+            Reset to Template
+          </Button>
+          <Button variant="primary" size="sm" onClick={close}>
+            Done
+          </Button>
+        </div>
+      }>
       <ol className="rounded-card border border-edge">
         {order.map((secId, idx) => {
           const label = SECTION_ORDER_LABELS[secId] ?? secId;

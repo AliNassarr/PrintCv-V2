@@ -4,6 +4,11 @@ import React from "react";
 import { CVData, DEFAULT_SECTION_ORDER } from "@/types/resume";
 import { removeEmDashes } from "@/lib/sanitizer";
 import { MAIN_EDUCATION_ID } from "@/lib/cv-constants";
+import {
+  DR_WISSAM_DEFAULT_HEADLINE,
+  DR_WISSAM_SKILL_LABELS,
+  formatSpecializationTrack,
+} from "@/lib/template-constants";
 
 const hasText = (value: unknown): boolean =>
   value !== undefined && value !== null && String(value).trim() !== "";
@@ -97,29 +102,49 @@ export function CVSheet({
   const level = hasLevel(contact.level) ? contact.level : mainEducation?.level;
   const levelLabel = hasLevel(level) ? `Level ${level}` : "";
 
-  const targetRole = data.targetRole?.trim() || "";
-  // The level is shown on the school line. Only put it under the name when there is no school line.
-  const subtitle =
-    mainEducation || targetRole.includes("Level")
-      ? targetRole
-      : [targetRole, levelLabel].filter(Boolean).join(" – ");
+  const baseHeadline = data.targetRole?.trim() || DR_WISSAM_DEFAULT_HEADLINE;
+  const subtitle = baseHeadline.includes("Level")
+    ? baseHeadline
+    : [baseHeadline, levelLabel].filter(Boolean).join(" – ");
 
   const stripProtocol = (url?: string) => (url || "").trim().replace(/^https?:\/\//, "");
-  const contactItems: { text: string; isLink?: boolean }[] = [
-    { text: contact.location?.trim() || "" },
-    { text: contact.email?.trim() || "" },
-    { text: contact.phoneNumber?.trim() || "" },
-    { text: stripProtocol(contact.linkedinUrl), isLink: true },
-    { text: stripProtocol(contact.githubUrl), isLink: true },
-  ].filter((item) => item.text);
+
+  type ContactItem = {
+    key: string;
+    text: string;
+    isLink?: boolean;
+    icon?: "github" | "linkedin";
+  };
+
+  const rawContactItems: (ContactItem | null)[] = [
+    stripProtocol(contact.githubUrl)
+      ? { key: "github", text: stripProtocol(contact.githubUrl), isLink: true, icon: "github" }
+      : null,
+    stripProtocol(contact.linkedinUrl)
+      ? { key: "linkedin", text: stripProtocol(contact.linkedinUrl), isLink: true, icon: "linkedin" }
+      : null,
+    contact.email?.trim()
+      ? { key: "email", text: contact.email.trim() }
+      : null,
+    contact.phoneNumber?.trim()
+      ? { key: "phone", text: contact.phoneNumber.trim() }
+      : null,
+  ];
+
+  const contactItems: ContactItem[] = rawContactItems.filter(
+    (item): item is ContactItem => item !== null && item.text !== ""
+  );
 
   const renderEducation = () => {
     if (!mainEducation && otherEducation.length === 0) return null;
     const mainTitle = mainEducation
       ? [mainEducation.institution?.trim(), levelLabel].filter(Boolean).join(" – ")
       : "";
+    const isAlumnus = educationState === "STATE_C_ALUMNUS" || mainEducation?.state === "STATE_C_ALUMNUS";
     const mainDates = mainEducation
-      ? formatDateRange(mainEducation.startDate, mainEducation.endDate, mainEducation.isCurrent)
+      ? isAlumnus
+        ? (mainEducation.endDate?.trim() || mainEducation.startDate?.trim() || "")
+        : formatDateRange(mainEducation.startDate, mainEducation.endDate, mainEducation.isCurrent)
       : "";
     const mainProgram = mainEducation?.program?.trim() || "";
     const track = specializationTrack?.trim() || "";
@@ -165,19 +190,16 @@ export function CVSheet({
           )}
 
           {educationState === "STATE_A_CORE" ? (
-            (mainProgram || contact.location) && (
-              <div className="flex justify-between items-baseline text-gray-800" style={{ fontSize: isCompact ? "9pt" : "9.5pt" }}>
+            mainProgram && (
+              <div className="text-gray-800" style={{ fontSize: isCompact ? "9pt" : "9.5pt" }}>
                 <span>{mainProgram}</span>
-                {contact.location && (
-                  <span className="italic text-gray-600" style={{ fontSize: isCompact ? "8.5pt" : "9pt" }}>{contact.location}</span>
-                )}
               </div>
             )
           ) : (
             (mainProgram || track) && (
               <div className="text-gray-800" style={{ fontSize: isCompact ? "9pt" : "9.5pt" }}>
                 {mainProgram && <div>{mainProgram}</div>}
-                {track && <div className="italic text-gray-700">Specialization: {track}</div>}
+                {track && <div>{formatSpecializationTrack(track)}</div>}
               </div>
             )
           )}
@@ -366,10 +388,10 @@ export function CVSheet({
     if (!skills) return null;
     const skillRows = (
       [
-        ["Languages", skills.languages],
-        ["Developer Tools", skills.developerTools],
-        ["Technologies & Frameworks", skills.technologiesFrameworks],
-        ["Project Management Tools", skills.projectManagementTools],
+        [DR_WISSAM_SKILL_LABELS.languages, skills.languages],
+        [DR_WISSAM_SKILL_LABELS.developerTools, skills.developerTools],
+        [DR_WISSAM_SKILL_LABELS.technologiesFrameworks, skills.technologiesFrameworks],
+        [DR_WISSAM_SKILL_LABELS.projectManagementTools, skills.projectManagementTools],
       ] as [string, string[] | undefined][]
     )
       .map(([label, items]) => [label, (items || []).filter(hasText)] as [string, string[]])
@@ -442,23 +464,21 @@ export function CVSheet({
           Relevant Coursework and Workshops
         </div>
 
-        <ul
-          className={isCompact ? "list-disc ml-4 space-y-0 text-gray-800" : "list-disc ml-5 space-y-0.5 text-gray-800"}
+        <div
+          className={isCompact ? "space-y-0.5 text-gray-800" : "space-y-1 text-gray-800"}
           style={{ fontSize: isCompact ? "9pt" : "9.5pt" }}
         >
           {coursework.map((cw) => (
-            <li key={cw.id} className="leading-snug">
-              <div className="flex justify-between items-baseline">
-                <span>{cw.title}</span>
-                {cw.date && (
-                  <span className="text-gray-700 italic ml-2" style={{ fontSize: isCompact ? "8.5pt" : "9pt" }}>
-                    {cw.date}
-                  </span>
-                )}
-              </div>
-            </li>
+            <div key={cw.id} className="flex justify-between items-baseline leading-snug">
+              <span>{cw.title}</span>
+              {cw.date && (
+                <span className="text-gray-800 italic shrink-0 ml-2" style={{ fontSize: isCompact ? "8.5pt" : "9pt" }}>
+                  {cw.date}
+                </span>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
     );
   };
@@ -581,7 +601,7 @@ export function CVSheet({
           className="font-bold tracking-tight text-gray-900"
           style={{ fontSize: isCompact ? "18pt" : "20pt", lineHeight: "1.1", marginBottom: "2px" }}
         >
-          {(contact.fullName || "").toUpperCase()}
+          {contact.fullName || "Your Name"}
         </NameTag>
 
         {subtitle && (
@@ -599,16 +619,40 @@ export function CVSheet({
             style={{ fontSize: isCompact ? "8.5pt" : "9pt" }}
           >
             {contactItems.map((item, idx) => (
-              <React.Fragment key={idx}>
+              <React.Fragment key={item.key}>
                 {idx > 0 && <span>|</span>}
                 {item.isLink ? (
                   <a
                     href={`https://${item.text}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:underline text-gray-700"
+                    className="inline-flex items-center hover:underline text-gray-700"
                   >
-                    {item.text}
+                    {item.icon === "github" && (
+                      <svg
+                        className="w-3.5 h-3.5 inline-block -mt-0.5 mr-1"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                        />
+                      </svg>
+                    )}
+                    {item.icon === "linkedin" && (
+                      <svg
+                        className="w-3.5 h-3.5 inline-block -mt-0.5 mr-1"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76c-.97 0-1.75-.79-1.75-1.76s.78-1.75 1.75-1.75 1.75.78 1.75 1.75-.78 1.76-1.75 1.76m1.39 9.74v-8.37H5.07v8.37h2.78z" />
+                      </svg>
+                    )}
+                    <span>{item.text}</span>
                   </a>
                 ) : (
                   <span>{item.text}</span>

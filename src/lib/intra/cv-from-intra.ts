@@ -1,6 +1,8 @@
 import { CVData, EducationItem, EducationState, ProjectItem, DEFAULT_SECTION_ORDER } from "@/types/resume";
 import { findProjectGuide } from "@/lib/project-guide";
 import { MAIN_EDUCATION_ID } from "@/lib/cv-constants";
+import { DR_WISSAM_EDUCATION_PROGRAMS, DR_WISSAM_DEFAULT_HEADLINE } from "@/lib/template-constants";
+import { deriveVerifiedSkillsFromProjects, safelyMergeSkills } from "@/lib/intra/skills-from-projects";
 
 export { MAIN_EDUCATION_ID };
 
@@ -57,9 +59,7 @@ export function schoolNameForCampus(campusName: string): string {
 }
 
 export function programForState(state: EducationState): string {
-  return state === "STATE_A_CORE"
-    ? "Core Curriculum – Architecture of Digital Technologies"
-    : "Completed the Core Curriculum – Architecture of Digital Technologies";
+  return DR_WISSAM_EDUCATION_PROGRAMS[state];
 }
 
 // Program titles older versions of the app filled in by default (app text, not personal data)
@@ -68,6 +68,8 @@ const OLD_DEFAULT_PROGRAMS = [
   "Completed the Core Systems Curriculum - Software & Systems Engineering",
   "Core Systems Curriculum – Architecture of Digital Technologies Program",
   "Completed the Core Systems Curriculum – Architecture of Digital Technologies Program",
+  "Core Curriculum – Architecture of Digital Technologies",
+  "Completed the Core Curriculum – Architecture of Digital Technologies",
 ];
 
 /** True when the program is empty or is text the app filled in, not something the student wrote. */
@@ -75,8 +77,9 @@ export function isDefaultProgram(program?: string): boolean {
   const text = (program || "").trim();
   return (
     !text ||
-    text === programForState("STATE_A_CORE") ||
-    text === programForState("STATE_B_SPECIALIZATION") ||
+    text === DR_WISSAM_EDUCATION_PROGRAMS.STATE_A_CORE ||
+    text === DR_WISSAM_EDUCATION_PROGRAMS.STATE_B_SPECIALIZATION ||
+    text === DR_WISSAM_EDUCATION_PROGRAMS.STATE_C_ALUMNUS ||
     OLD_DEFAULT_PROGRAMS.includes(text)
   );
 }
@@ -99,7 +102,7 @@ export function projectsFromIntra(user: IntraProfile, limit = 4): ProjectItem[] 
       name: p.name,
       slug: p.slug,
       is42Project: true,
-      techStack: findProjectGuide(p.slug, p.name)?.techStack || "",
+      techStack: findProjectGuide(p.slug, p.name)?.techStack || "C",
       date: p.date || format42ProjectDate(p.markedAt),
       bulletPoints: [],
     }));
@@ -204,8 +207,13 @@ export function mergeIntraIntoCV(cv: CVData, user: IntraProfile): CVData {
     ? cv.education.map((e) => (e.id === MAIN_EDUCATION_ID ? fillMain(e) : e))
     : [fromIntra, ...cv.education];
 
+  // Derive verified skills only if the user hasn't already entered skills
+  const verifiedSkills = deriveVerifiedSkillsFromProjects(user.validatedProjects || []);
+  const mergedSkills = safelyMergeSkills(cv.skills, verifiedSkills);
+
   return {
     ...cv,
+    targetRole: isBlank(cv.targetRole) ? DR_WISSAM_DEFAULT_HEADLINE : cv.targetRole,
     educationState: state,
     contact: {
       ...cv.contact,
@@ -216,6 +224,7 @@ export function mergeIntraIntoCV(cv: CVData, user: IntraProfile): CVData {
     },
     education,
     projects: cv.projects.length > 0 ? cv.projects : projectsFromIntra(user),
+    skills: mergedSkills,
   };
 }
 

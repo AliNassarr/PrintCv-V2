@@ -4,13 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useCVStore } from "@/lib/store/cv-store";
 import type { SkillsData } from "@/types/resume";
 import { TextInput } from "@/components/ui/TextInput";
+import { DR_WISSAM_SKILL_LABELS } from "@/lib/template-constants";
 import { SectionTitle, plural } from "./parts";
 
 const GROUPS: { key: keyof SkillsData; id: string; label: string; placeholder: string }[] = [
-  { key: "languages", id: "skills-languages", label: "Programming languages", placeholder: "e.g. C, C++, Python" },
-  { key: "developerTools", id: "skills-tools", label: "Tools", placeholder: "e.g. Git, Docker, Valgrind" },
-  { key: "technologiesFrameworks", id: "skills-frameworks", label: "Frameworks and libraries", placeholder: "e.g. React, Node.js" },
-  { key: "projectManagementTools", id: "skills-teamwork", label: "Teamwork tools", placeholder: "e.g. GitHub, Jira, Notion" },
+  { key: "languages", id: "skills-languages", label: DR_WISSAM_SKILL_LABELS.languages, placeholder: "e.g. C, C++, Python" },
+  { key: "developerTools", id: "skills-tools", label: DR_WISSAM_SKILL_LABELS.developerTools, placeholder: "e.g. Git, Docker, Valgrind" },
+  { key: "technologiesFrameworks", id: "skills-frameworks", label: DR_WISSAM_SKILL_LABELS.technologiesFrameworks, placeholder: "e.g. React, Node.js" },
+  { key: "projectManagementTools", id: "skills-teamwork", label: DR_WISSAM_SKILL_LABELS.projectManagementTools, placeholder: "e.g. GitHub, Jira, Notion" },
 ];
 
 const toList = (text: string) => text.split(",").map((s) => s.trim()).filter(Boolean);
