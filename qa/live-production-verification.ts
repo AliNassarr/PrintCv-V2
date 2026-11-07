@@ -36,7 +36,7 @@ async function runLiveVerification() {
     assert(landingTitle.includes("PrintCV"), `Landing page title is valid ('${landingTitle}')`);
 
     const hasCtaButton = await page.eval<boolean>(
-      "Array.from(document.querySelectorAll('a, button')).some(el => el.textContent.includes('Start') || el.textContent.includes('Open') || el.textContent.includes('Editor') || el.getAttribute('href') === '/studio')"
+      "Boolean(document.querySelector('a[href=\"/studio\"]') || Array.from(document.querySelectorAll('a')).some(el => el.getAttribute('href') === '/studio' || el.textContent.includes('editor')))"
     );
     assert(hasCtaButton, "Landing page contains active CTA navigation to /studio");
 
