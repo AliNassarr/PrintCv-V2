@@ -8,9 +8,9 @@ ok(!removeLegacySampleData(real).changed, "real CV untouched");
 // Merge
 const user: any = { id: 1, login: "sstud", email: "s@example.org", displayname: "Sam Student", image: "", campusName: "Northfield", campusId: 1, level: 5.4, grade: "Learner", poolMonth: "", poolYear: 2024, coalition: "", beginAt: "2024-10-01T00:00:00Z", validatedProjects: [{ id: 3, name: "libft", slug: "libft", finalMark: 100, validated: true, markedAt: "2024-11-01T00:00:00Z" }, { id: 4, name: "Exam 02", slug: "exam-rank-02", finalMark: 100, validated: true, markedAt: "2024-11-01T00:00:00Z" }] };
 const fresh = createInitialCVFromIntra(user);
-ok(fresh.education[0].institution === "42 Northfield" && fresh.education[0].startDate === "2024" && fresh.education[0].level === 5, "fresh edu filled");
+ok(fresh.education[0].institution === "42 Northfield" && fresh.education[0].startDate === "2024" && fresh.education[0].level === 5.4, "fresh edu filled");
 ok(fresh.education[0].program === programForState("STATE_A_CORE"), "fresh program");
-ok(fresh.projects.length === 1 && fresh.contact.level === 5, "fresh projects/level");
+ok(fresh.projects.length === 1 && fresh.contact.level === 5.4, "fresh projects/level");
 ok(createEmptyCV().education[0].program === "", "empty CV has no program");
 const typed = createEmptyCV(); typed.contact.fullName = "My Name"; typed.education[0].program = "My program"; typed.education[0].startDate = "2023"; typed.education[0].endDate = "2025"; typed.education[0].isCurrent = false;
 const merged = mergeIntraIntoCV(typed, user);

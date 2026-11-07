@@ -123,3 +123,23 @@ export function normalizeGitHub(val: string): string {
   cleaned = cleaned.replace(/\/+$/, "").replace(/\?.*$/, "");
   return cleaned ? `github.com/${cleaned}` : "";
 }
+
+/**
+ * Splits a comma-separated skills string into a deduplicated, trimmed array of strings.
+ */
+export function parseSkillsCommaList(text: string): string[] {
+  if (!text) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of text.split(",")) {
+    const cleaned = removeEmDashes(raw.trim());
+    if (!cleaned) continue;
+    const key = cleaned.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(cleaned);
+    }
+  }
+  return result;
+}
+

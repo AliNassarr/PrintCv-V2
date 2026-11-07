@@ -47,6 +47,7 @@ export interface ProjectItem {
   techStack: string; // Comma-separated: "C, Unix System Calls, Process Management"
   date: string; // e.g., "January 2025"
   bulletPoints: string[];
+  archetypeOverride?: "personal" | "freelance" | "hackathon" | "open-source";
 }
 
 // Strict 4 categories required by the CV template

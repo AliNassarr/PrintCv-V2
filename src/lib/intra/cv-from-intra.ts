@@ -1,7 +1,11 @@
 import { CVData, EducationItem, EducationState, ProjectItem, DEFAULT_SECTION_ORDER } from "@/types/resume";
 import { findProjectGuide } from "@/lib/project-guide";
 import { MAIN_EDUCATION_ID } from "@/lib/cv-constants";
-import { DR_WISSAM_EDUCATION_PROGRAMS, DR_WISSAM_DEFAULT_HEADLINE } from "@/lib/template-constants";
+import {
+  DR_WISSAM_EDUCATION_PROGRAMS,
+  DR_WISSAM_DEFAULT_HEADLINE,
+  parseStrict42Level,
+} from "@/lib/template-constants";
 import { deriveVerifiedSkillsFromProjects, safelyMergeSkills } from "@/lib/intra/skills-from-projects";
 
 export { MAIN_EDUCATION_ID };
@@ -97,21 +101,29 @@ export function projectsFromIntra(user: IntraProfile, limit = 4): ProjectItem[] 
   return user.validatedProjects
     .filter((p) => !isExamOrPiscine(p))
     .slice(0, limit)
-    .map((p) => ({
-      id: `proj-intra-${p.id}`,
-      name: p.name,
-      slug: p.slug,
-      is42Project: true,
-      techStack: findProjectGuide(p.slug, p.name)?.techStack || "C",
-      date: p.date || format42ProjectDate(p.markedAt),
-      bulletPoints: [],
-    }));
+    .map((p) => {
+      const guide = findProjectGuide(p.slug, p.name);
+      return {
+        id: `proj-intra-${p.id}`,
+        name: p.name,
+        slug: p.slug,
+        is42Project: true,
+        // Only use guide techStack if defined; never invent or force an unverified technology stack
+        techStack: guide ? guide.techStack : "",
+        date: p.date || format42ProjectDate(p.markedAt),
+        bulletPoints: [],
+      };
+    });
 }
 
-/** Whole Intra level, or "" when there is none (no cursus yet, or level 0). */
+/**
+ * Verified Intra level up to two decimal places, or "" when invalid or 0.
+ * Strictly rejects malformed numeric strings, NaN, Infinity, negative values, and 0.
+ * Examples: 11.45 -> 11.45, 3.5 -> 3.5, 2 -> 2, "11.45abc" -> "".
+ */
 export function levelFromIntra(user: IntraProfile): number | "" {
-  const level = Math.floor(Number(user.level) || 0);
-  return level > 0 ? level : "";
+  const parsed = parseStrict42Level(user?.level);
+  return parsed ?? "";
 }
 
 function mainEducationFromIntra(user: IntraProfile, state: EducationState): EducationItem {

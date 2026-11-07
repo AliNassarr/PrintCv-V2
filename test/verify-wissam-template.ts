@@ -161,8 +161,8 @@ async function run() {
   ok(html.includes("Wissam Sammouri"), "name rendered in title case");
   ok(!html.includes("WISSAM SAMMOURI"), "uppercase name removed");
 
-  // Subtitle: 42 Student – Level 9
-  ok(html.includes("42 Student – Level 9"), "subtitle rendered with Dr. Wissam default and Level");
+  // Subtitle: 42 Student – Level 9.35
+  ok(html.includes("42 Student – Level 9.35"), "subtitle rendered with Dr. Wissam default and Level 9.35");
 
   // Icons: GitHub & LinkedIn SVGs present
   ok(html.includes("<svg") && html.includes("viewBox=\"0 0 24 24\""), "contact icons rendered as SVGs");

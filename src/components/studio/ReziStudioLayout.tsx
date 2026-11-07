@@ -27,6 +27,7 @@ import { sectionProgress, nextStep, linesToFix } from "@/lib/progress";
 import { projectsFromIntra } from "@/lib/intra/cv-from-intra";
 import type { HelperTarget } from "@/lib/bullet-helper";
 import type { StudioSection } from "@/lib/studio-sections";
+import { sanitizeBulletPoint, removeEmDashes } from "@/lib/sanitizer";
 import { cx } from "@/lib/cx";
 
 export type { StudioSection } from "@/lib/studio-sections";
@@ -139,8 +140,31 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
 
   const applyHelperBullets = (bullets: string[], mode: "replace" | "add") => {
     if (!helperTarget) return;
-    const merge = (current: string[]) =>
-      mode === "add" ? [...current.filter((b) => b.trim()), ...bullets] : bullets;
+
+    // Clean, sanitize, and deduplicate incoming bullets
+    const cleanIncoming: string[] = [];
+    const seenIncoming = new Set<string>();
+    for (const b of bullets || []) {
+      const trimmed = removeEmDashes(b || "").trim();
+      if (!trimmed) continue;
+      const sanitized = sanitizeBulletPoint(trimmed);
+      const key = sanitized.toLowerCase();
+      if (!seenIncoming.has(key)) {
+        seenIncoming.add(key);
+        cleanIncoming.push(sanitized);
+      }
+    }
+
+    const merge = (current?: string[]) => {
+      const existingClean = (current || []).map((b) => b.trim()).filter((b) => b.length > 0);
+      if (mode === "replace") {
+        return cleanIncoming;
+      }
+      const existingKeys = new Set(existingClean.map((b) => b.toLowerCase()));
+      const nonDuplicates = cleanIncoming.filter((b) => !existingKeys.has(b.toLowerCase()));
+      return [...existingClean, ...nonDuplicates];
+    };
+
     const { id, bulletPoints } = helperTarget.item;
     if (helperTarget.kind === "project") {
       setCVData({

@@ -34,6 +34,12 @@ export default function StudioClient() {
 
   // After "Log in with 42": the callback sends us back with a one-time code
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__PRINTCV_STORE__ = useCVStore;
+    }
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const errorCode = params.get("error");

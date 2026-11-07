@@ -13,7 +13,11 @@ import {
   ExtracurricularItem,
   SectionId,
   DEFAULT_SECTION_ORDER,
+  SkillsData,
 } from "@/types/resume";
+import { removeEmDashes, parseSkillsCommaList } from "@/lib/sanitizer";
+
+export { parseSkillsCommaList };
 import {
   IntraProfile,
   MAIN_EDUCATION_ID,
@@ -125,6 +129,10 @@ export interface ParsedCVData {
   coursework?: string[];
 }
 
+export function generateUniqueId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 interface CVStore {
   // Navigation
   currentStep: WizardStep;
@@ -178,10 +186,16 @@ interface CVStore {
   setSectionOrder: (order: SectionId[]) => void;
   moveSection: (fromIndex: number, toIndex: number) => void;
   updateContact: (contact: Partial<CVData["contact"]>) => void;
+  updateTargetRole: (role: string) => void;
   updateSkills: (skills: Partial<CVData["skills"]>) => void;
+  updateSkillCategory: (category: keyof SkillsData, rawOrList: string | string[]) => void;
+  updateProject: (id: string, patch: Partial<ProjectItem>) => void;
   updateProjectBullet: (projectId: string, bulletIndex: number, text: string) => void;
   addProjectBullet: (projectId: string, text?: string) => void;
   removeProjectBullet: (projectId: string, bulletIndex: number) => void;
+  restoreProjectBullet: (projectId: string, index: number, text: string) => void;
+  undoLastBulletDeletion: () => boolean;
+  lastDeletedBullet: { projectId: string; index: number; text: string } | null;
   addProjectToCV: (project?: Partial<ProjectItem>) => void;
   removeProjectFromCV: (projectId: string) => void;
   restoreProjectAt: (project: ProjectItem, index: number) => void;
@@ -280,7 +294,30 @@ export const useCVStore = create<CVStore>()(
         }),
 
       targetRole: "",
-      setTargetRole: (role) => set({ targetRole: role, lastSavedTimestamp: Date.now() }),
+      setTargetRole: (role) =>
+        set((state) => {
+          const cleanRole = removeEmDashes(role || "").trim();
+          return {
+            targetRole: cleanRole,
+            lastSavedTimestamp: Date.now(),
+            cvData: {
+              ...state.cvData,
+              targetRole: cleanRole,
+            },
+          };
+        }),
+      updateTargetRole: (role) =>
+        set((state) => {
+          const cleanRole = removeEmDashes(role || "").trim();
+          return {
+            targetRole: cleanRole,
+            lastSavedTimestamp: Date.now(),
+            cvData: {
+              ...state.cvData,
+              targetRole: cleanRole,
+            },
+          };
+        }),
 
       educationState: "STATE_A_CORE",
       setEducationState: (educationState) =>
@@ -435,7 +472,8 @@ export const useCVStore = create<CVStore>()(
       // Active CV Data
       cvData: defaultCVData,
       setCVData: (cvData) =>
-        set({
+        set((state) => ({
+          targetRole: cvData.targetRole !== undefined ? cvData.targetRole : state.targetRole,
           cvData: {
             ...cvData,
             sectionOrder:
@@ -444,7 +482,7 @@ export const useCVStore = create<CVStore>()(
                 : [...DEFAULT_SECTION_ORDER],
           },
           lastSavedTimestamp: Date.now(),
-        }),
+        })),
 
       setSectionOrder: (order) =>
         set((state) => ({
@@ -482,13 +520,19 @@ export const useCVStore = create<CVStore>()(
         }),
 
       updateContact: (contactPatch) =>
-        set((state) => ({
-          lastSavedTimestamp: Date.now(),
-          cvData: {
-            ...state.cvData,
-            contact: { ...state.cvData.contact, ...contactPatch },
-          },
-        })),
+        set((state) => {
+          const safePatch = { ...contactPatch };
+          if ("level" in safePatch && (safePatch.level === "" || safePatch.level === undefined)) {
+            safePatch.level = state.cvData.contact.level;
+          }
+          return {
+            lastSavedTimestamp: Date.now(),
+            cvData: {
+              ...state.cvData,
+              contact: { ...state.cvData.contact, ...safePatch },
+            },
+          };
+        }),
 
       updateSkills: (skillsPatch) =>
         set((state) => ({
@@ -499,6 +543,34 @@ export const useCVStore = create<CVStore>()(
           },
         })),
 
+      updateSkillCategory: (category, rawOrList) =>
+        set((state) => {
+          const list = Array.isArray(rawOrList)
+            ? rawOrList
+            : parseSkillsCommaList(rawOrList);
+          return {
+            lastSavedTimestamp: Date.now(),
+            cvData: {
+              ...state.cvData,
+              skills: {
+                ...state.cvData.skills,
+                [category]: list,
+              },
+            },
+          };
+        }),
+
+      updateProject: (id, patch) =>
+        set((state) => ({
+          lastSavedTimestamp: Date.now(),
+          cvData: {
+            ...state.cvData,
+            projects: state.cvData.projects.map((proj) =>
+              proj.id === id ? { ...proj, ...patch } : proj
+            ),
+          },
+        })),
+
       updateProjectBullet: (projectId, bulletIndex, text) =>
         set((state) => ({
           lastSavedTimestamp: Date.now(),
@@ -506,8 +578,12 @@ export const useCVStore = create<CVStore>()(
             ...state.cvData,
             projects: state.cvData.projects.map((p) => {
               if (p.id === projectId) {
-                const nextBullets = [...p.bulletPoints];
-                nextBullets[bulletIndex] = text;
+                const nextBullets = [...(p.bulletPoints || [])];
+                if (bulletIndex >= 0 && bulletIndex < nextBullets.length) {
+                  nextBullets[bulletIndex] = text;
+                } else if (bulletIndex === nextBullets.length) {
+                  nextBullets.push(text);
+                }
                 return { ...p, bulletPoints: nextBullets };
               }
               return p;
@@ -530,28 +606,59 @@ export const useCVStore = create<CVStore>()(
         })),
 
       removeProjectBullet: (projectId, bulletIndex) =>
+        set((state) => {
+          const proj = state.cvData.projects.find((p) => p.id === projectId);
+          const deletedText = proj?.bulletPoints[bulletIndex] || "";
+          return {
+            lastSavedTimestamp: Date.now(),
+            lastDeletedBullet: deletedText ? { projectId, index: bulletIndex, text: deletedText } : state.lastDeletedBullet,
+            cvData: {
+              ...state.cvData,
+              projects: state.cvData.projects.map((p) => {
+                if (p.id === projectId) {
+                  return {
+                    ...p,
+                    bulletPoints: p.bulletPoints.filter((_, idx) => idx !== bulletIndex),
+                  };
+                }
+                return p;
+              }),
+            },
+          };
+        }),
+
+      restoreProjectBullet: (projectId, index, text) =>
         set((state) => ({
           lastSavedTimestamp: Date.now(),
           cvData: {
             ...state.cvData,
             projects: state.cvData.projects.map((p) => {
               if (p.id === projectId) {
-                return {
-                  ...p,
-                  bulletPoints: p.bulletPoints.filter((_, idx) => idx !== bulletIndex),
-                };
+                const nextBullets = [...p.bulletPoints];
+                const clampedIndex = Math.min(Math.max(0, index), nextBullets.length);
+                nextBullets.splice(clampedIndex, 0, text);
+                return { ...p, bulletPoints: nextBullets };
               }
               return p;
             }),
           },
         })),
 
+      undoLastBulletDeletion: () => {
+        const deleted = get().lastDeletedBullet;
+        if (!deleted) return false;
+        get().restoreProjectBullet(deleted.projectId, deleted.index, deleted.text);
+        set({ lastDeletedBullet: null });
+        return true;
+      },
+      lastDeletedBullet: null,
+
       addProjectToCV: (proj) =>
         set((state) => {
           const newProj: ProjectItem = {
-            id: `proj-${Date.now()}`,
+            id: proj?.id || generateUniqueId("proj"),
             name: proj?.name ?? "",
-            slug: proj?.slug || `project-${Date.now()}`,
+            slug: proj?.slug || generateUniqueId("project"),
             is42Project: proj?.is42Project ?? false,
             techStack: proj?.techStack ?? "",
             date: proj?.date ?? "",
@@ -642,7 +749,7 @@ export const useCVStore = create<CVStore>()(
       addExperienceItem: (item) =>
         set((state) => {
           const newItem: ExperienceItem = {
-            id: `exp-${Date.now()}`,
+            id: item?.id || generateUniqueId("exp"),
             company: item?.company || "",
             role: item?.role || "",
             location: item?.location || "",
@@ -742,7 +849,7 @@ export const useCVStore = create<CVStore>()(
       addEducationItem: (item) =>
         set((state) => {
           const newEdu: EducationItem = {
-            id: `edu-${Date.now()}`,
+            id: item?.id || generateUniqueId("edu"),
             institution: item?.institution ?? "",
             program: item?.program ?? "",
             degree: item?.degree ?? "",
@@ -765,26 +872,42 @@ export const useCVStore = create<CVStore>()(
           lastSavedTimestamp: Date.now(),
           cvData: {
             ...state.cvData,
-            education: state.cvData.education.map((edu) =>
-              edu.id === id ? { ...edu, ...patch } : edu
-            ),
+            education: state.cvData.education.map((edu) => {
+              if (edu.id !== id) return edu;
+              const nextPatch = { ...patch };
+              if (nextPatch.program !== undefined && nextPatch.degree === undefined) {
+                nextPatch.degree = nextPatch.program;
+              }
+              if (edu.id === MAIN_EDUCATION_ID) {
+                if (!("level" in patch)) {
+                  nextPatch.level = edu.level;
+                }
+                if (typeof nextPatch.institution === "string") {
+                  nextPatch.institution = nextPatch.institution.replace(/\s*[–—-]\s*Level\s+\d+(\.\d+)?$/i, "").trim();
+                }
+              }
+              return { ...edu, ...nextPatch };
+            }),
           },
         })),
 
       removeEducationItem: (id) =>
-        set((state) => ({
-          lastSavedTimestamp: Date.now(),
-          cvData: {
-            ...state.cvData,
-            education: state.cvData.education.filter((edu) => edu.id !== id),
-          },
-        })),
+        set((state) => {
+          if (id === MAIN_EDUCATION_ID) return state;
+          return {
+            lastSavedTimestamp: Date.now(),
+            cvData: {
+              ...state.cvData,
+              education: state.cvData.education.filter((edu) => edu.id !== id),
+            },
+          };
+        }),
 
       // Coursework Mutations
       addCourseworkItem: (item) =>
         set((state) => {
           const newItem: CourseworkItem = {
-            id: `cw-${Date.now()}`,
+            id: item?.id || generateUniqueId("cw"),
             title: item?.title ?? "",
             date: item?.date ?? "",
             institution: item?.institution ?? "",
@@ -822,7 +945,7 @@ export const useCVStore = create<CVStore>()(
       addExtracurricularItem: (item) =>
         set((state) => {
           const newItem: ExtracurricularItem = {
-            id: `ec-${Date.now()}`,
+            id: item?.id || generateUniqueId("ec"),
             organization: item?.organization ?? "",
             role: item?.role ?? "",
             startDate: item?.startDate ?? "",
@@ -1119,6 +1242,7 @@ export const useCVStore = create<CVStore>()(
           campusRoleAnswers: {},
           selectedCoursework: [],
           helperAnswers: {},
+          lastDeletedBullet: null,
           cvData: initialCV,
           lastSavedTimestamp: Date.now(),
         });
@@ -1231,6 +1355,10 @@ export const useCVStore = create<CVStore>()(
     }
   )
 );
+
+if (typeof window !== "undefined") {
+  (window as any).__PRINTCV_STORE__ = useCVStore;
+}
 
 export function useHasHydrated() {
   const [hasHydrated, setHasHydrated] = useState(false);

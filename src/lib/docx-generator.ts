@@ -15,20 +15,13 @@ import {
   DR_WISSAM_DEFAULT_HEADLINE,
   DR_WISSAM_SKILL_LABELS,
   formatSpecializationTrack,
+  format42Level,
+  format42LevelLabel,
+  formatCVSubtitle,
 } from "@/lib/template-constants";
 
 const hasText = (value: unknown): boolean =>
   value !== undefined && value !== null && String(value).trim() !== "";
-
-// A level only counts if it is a positive number or a non-empty string other than "0".
-const hasLevel = (value: unknown): boolean => {
-  if (typeof value === "number") return Number.isFinite(value) && value > 0;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed !== "" && trimmed !== "0";
-  }
-  return false;
-};
 
 // Drops blank bullets so an all-empty list renders nothing.
 const nonEmptyBullets = (bullets?: string[]): string[] =>
@@ -80,13 +73,9 @@ export async function generateCvDocx(data: CVData): Promise<Blob> {
   // ==============================================================
   const mainEducation = (data.education || []).find((e) => e.id === MAIN_EDUCATION_ID);
   const otherEducation = (data.education || []).filter((e) => e.id !== MAIN_EDUCATION_ID);
-  const level = hasLevel(data.contact.level) ? data.contact.level : mainEducation?.level;
-  const levelLabel = hasLevel(level) ? `Level ${level}` : "";
-
-  const baseHeadline = data.targetRole?.trim() || DR_WISSAM_DEFAULT_HEADLINE;
-  const subtitle = baseHeadline.includes("Level")
-    ? baseHeadline
-    : [baseHeadline, levelLabel].filter(Boolean).join(" – ");
+  const rawLevel = format42Level(data.contact.level) ? data.contact.level : mainEducation?.level;
+  const levelLabel = format42LevelLabel(rawLevel);
+  const subtitle = formatCVSubtitle(data.targetRole, rawLevel);
 
   const stripProtocol = (url?: string) => (url || "").trim().replace(/^https?:\/\//, "");
   const contactLine = [

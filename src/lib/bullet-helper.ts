@@ -10,6 +10,7 @@ import {
   COMMON_PROJECT_QUESTIONS,
   EXPERIENCE_QUESTIONS,
   findProjectGuide,
+  getNon42ProjectQuestions,
   GuideQuestion,
   OTHER_PROJECT_QUESTIONS,
   ProjectGuide,
@@ -35,7 +36,8 @@ export function helperQuestions(target: HelperTarget): GuideQuestion[] {
   if (target.kind === "experience") return EXPERIENCE_QUESTIONS;
   if (target.kind === "activity") return ACTIVITY_QUESTIONS;
   const guide = guideFor(target);
-  return [...(guide ? guide.questions : OTHER_PROJECT_QUESTIONS), ...COMMON_PROJECT_QUESTIONS];
+  const questions = guide ? guide.questions : getNon42ProjectQuestions(target.item);
+  return [...questions, ...COMMON_PROJECT_QUESTIONS];
 }
 
 const answerText = (answer: HelperAnswer | undefined): string =>

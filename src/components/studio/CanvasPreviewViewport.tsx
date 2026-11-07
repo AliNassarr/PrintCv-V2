@@ -224,6 +224,7 @@ export function CanvasPreviewViewport({
                 forceOverflowIndicator={true}
                 nameAs="p"
                 dataUi
+                editable={true}
               />
             </div>
           </div>

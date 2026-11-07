@@ -29,13 +29,11 @@ export function ProjectsSection({
   const removeProjectFromCV = useCVStore((s) => s.removeProjectFromCV);
   const moveProject = useCVStore((s) => s.moveProject);
   // Store actions never change, so they are read once instead of subscribed to
-  const { addProjectBullet: addLine, updateProjectBullet: setLine, removeProjectBullet: dropLine } = useCVStore.getState();
+  const { addProjectBullet: addLine, updateProjectBullet: setLine, removeProjectBullet: dropLine, updateProject } = useCVStore.getState();
   const rootRef = useRef<HTMLDivElement>(null);
   const [showAllPicker, setShowAllPicker] = useState(false);
 
   const projects = cvData.projects;
-  const updateProject = (id: string, patch: Partial<ProjectItem>) =>
-    setCVData({ ...cvData, projects: cvData.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
   const picker = showAllPicker ? otherIntraProjects : otherIntraProjects.slice(0, PICKER_FIRST);
 
   return (
