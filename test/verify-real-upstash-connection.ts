@@ -14,8 +14,8 @@ const url = (process.env.UPSTASH_REDIS_REST_URL || "").trim().replace(/\/+$/, ""
 const token = (process.env.UPSTASH_REDIS_REST_TOKEN || "").trim();
 
 if (!url || !token) {
-  console.error("FAIL: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is missing in .env.local");
-  process.exit(1);
+  console.log("SKIP: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN is not configured in this environment (live Upstash test skipped).");
+  process.exit(0);
 }
 
 const uniqueRunId = `test_run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
