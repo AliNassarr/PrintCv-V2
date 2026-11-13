@@ -16,7 +16,7 @@ import {
   parseBulletsFromAI as parseReply,
 } from "@/lib/bullet-helper";
 import { ProjectArchetype } from "@/lib/project-guide";
-import { ReadmeParseResult } from "@/lib/readme-parser";
+import { ReadmeParseResult, extractReadmeSections } from "@/lib/readme-parser";
 import { DialogFrame } from "@/components/ui/DialogFrame";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
@@ -79,6 +79,20 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent<{slug:string;name:string;text:string}>).detail;
+      if (!detail || target.kind !== "project" || target.item.slug !== detail.slug) return;
+      const parsed = extractReadmeSections(detail.text);
+      setReadmeFile({ name: `${detail.name} README.md`, size: detail.text.length });
+      setReadmeContent(detail.text);
+      setReadmeParsed(parsed);
+      setActiveTab(0);
+    };
+    window.addEventListener("printcv:github-readme", receive);
+    return () => window.removeEventListener("printcv:github-readme", receive);
+  }, [target]);
 
   // Reset temporary state if target changes
   useEffect(() => {

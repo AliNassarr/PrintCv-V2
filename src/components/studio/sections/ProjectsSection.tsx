@@ -9,6 +9,7 @@ import { TextInput } from "@/components/ui/TextInput";
 import type { SectionProps } from "./types";
 import { LOGIN_URL } from "@/lib/auth-urls";
 import { ADD_ITEM, CARD_TOGGLE, ItemCard, LinesBlock, SectionTitle, SlotButton, focusAfterChange, plural, refocusCardButton } from "./parts";
+import { GitHubProjectPicker } from "@/components/studio/GitHubProjectPicker";
 
 const PICKER_FIRST = 12;
 
@@ -163,6 +164,8 @@ export function ProjectsSection({
           </div>
         </div>
       )}
+
+      <GitHubProjectPicker onOpenHelper={(id) => onOpenHelper("project", id)} />
 
       <SlotButton onClick={() => addProjectToCV({ name: "", techStack: "", date: "", is42Project: false, bulletPoints: [] })}>
         Add a project yourself
