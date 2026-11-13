@@ -130,7 +130,7 @@ export function ReadmeUploadZone({
           }}
           tabIndex={disabled ? -1 : 0}
           role="button"
-          aria-label="Upload optional README markdown or text file for project context"
+          aria-label="Upload project README (optional). Drag & drop .md or .txt file here, or click to browse (max 512 KB)."
           className={cx(
             "flex flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed p-4 text-center transition-colors duration-150 sm:p-5",
             isDragging

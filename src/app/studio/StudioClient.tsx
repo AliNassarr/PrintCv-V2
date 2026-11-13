@@ -272,7 +272,7 @@ export default function StudioClient() {
   // State: Welcome
   if (controllerState.state === "WELCOME") {
     return (
-      <>
+      <main>
         <StudioWelcome
           notice={controllerState.notice || authError}
           onContinueGuest={handleContinueGuest}
@@ -288,7 +288,7 @@ export default function StudioClient() {
             onConfirmCopy={handleConfirmCopy}
           />
         )}
-      </>
+      </main>
     );
   }
 
@@ -299,10 +299,10 @@ export default function StudioClient() {
         <aside
           role="region"
           aria-label="Available previous draft banner"
-          className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-app-sm flex items-center justify-between text-amber-900"
+          className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-app-sm flex flex-col items-start gap-2 text-amber-900 sm:flex-row sm:items-center sm:justify-between"
         >
-          <span>Found previous {availableReviews.map((r) => r.label).join(" and ")}. Review and copy it into this session?</span>
-          <div className="flex gap-2">
+          <span className="min-w-0">Found previous {availableReviews.map((r) => r.label).join(" and ")}. Review and copy it into this session?</span>
+          <div className="flex flex-wrap gap-2">
             {availableReviews.map((rev) => (
               <Button
                 key={rev.key}
