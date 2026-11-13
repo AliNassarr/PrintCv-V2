@@ -4,25 +4,58 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const CHROME = process.platform === "win32"
+  ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
+  : "/usr/bin/google-chrome";
 
-export async function launch(port = 9333): Promise<{ proc: ChildProcess; page: Page }> {
+export async function launch(port = 9333): Promise<{ proc: ChildProcess; page: Page; tempDir: string }> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "printcv-qa-"));
-  const proc = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, "--no-first-run", "--window-size=1440,900", "about:blank"], { stdio: "ignore" });
+  const proc = spawn(
+    CHROME,
+    [
+      "--headless=new",
+      `--remote-debugging-port=${port}`,
+      `--user-data-dir=${dir}`,
+      "--no-first-run",
+      "--window-size=1440,900",
+      "about:blank",
+    ],
+    { stdio: "ignore" }
+  );
   let tabs: any[] = [];
   for (let i = 0; i < 50; i++) {
-    try { tabs = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); if (tabs.find((t) => t.type === "page")) break; } catch {}
+    try {
+      tabs = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+      if (tabs.find((t) => t.type === "page")) break;
+    } catch {}
     await new Promise((r) => setTimeout(r, 200));
   }
   const tab = tabs.find((t) => t.type === "page");
+  if (!tab) {
+    try { proc.kill(); } catch {}
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+    throw new Error("Could not find Chrome page tab via CDP.");
+  }
   const page = new Page(tab.webSocketDebuggerUrl);
   await page.open();
-  return { proc, page };
+  return { proc, page, tempDir: dir };
 }
 
 export class Page {
-  ws!: WebSocket; id = 1; pending = new Map<number, any>(); logs: string[] = [];
+  ws!: WebSocket;
+  id = 1;
+  pending = new Map<number, any>();
+  logs: string[] = [];
+  handlers = new Map<string, Array<(params: any) => void>>();
+
   constructor(private url: string) {}
+
+  on(event: string, handler: (params: any) => void): void {
+    const list = this.handlers.get(event) || [];
+    list.push(handler);
+    this.handlers.set(event, list);
+  }
+
   open() {
     return new Promise<void>((res, rej) => {
       this.ws = new WebSocket(this.url);
@@ -30,11 +63,33 @@ export class Page {
       this.ws.onerror = (e) => rej(e);
       this.ws.onmessage = (ev) => {
         const m = JSON.parse(String(ev.data));
-        if (m.id && this.pending.has(m.id)) { const p = this.pending.get(m.id); this.pending.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); }
-        if (m.method === "Runtime.exceptionThrown") this.logs.push("EXCEPTION " + JSON.stringify(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
-        if (m.method === "Runtime.consoleAPICalled" && (m.params.type === "error" || m.params.type === "warning")) this.logs.push(m.params.type + " " + m.params.args.map((a: any) => a.value ?? a.description).join(" "));
+        if (m.id && this.pending.has(m.id)) {
+          const p = this.pending.get(m.id);
+          this.pending.delete(m.id);
+          m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result);
+        }
+        if (m.method) {
+          const hs = this.handlers.get(m.method);
+          if (hs) {
+            for (const h of hs) {
+              try { h(m.params); } catch (e) { console.error("Event handler error:", e); }
+            }
+          }
+        }
+        if (m.method === "Runtime.exceptionThrown") {
+          this.logs.push("EXCEPTION " + JSON.stringify(m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
+        }
+        if (m.method === "Runtime.consoleAPICalled" && (m.params.type === "error" || m.params.type === "warning")) {
+          this.logs.push(m.params.type + " " + m.params.args.map((a: any) => a.value ?? a.description).join(" "));
+        }
       };
     });
+  }
+
+  close(): void {
+    try {
+      if (this.ws) this.ws.close();
+    } catch {}
   }
   send(method: string, params: any = {}): Promise<any> {
     const id = this.id++;

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Check, Copy, ExternalLink, Sparkles, FileText, HelpCircle, MessageSquareText, AlertTriangle } from "lucide-react";
 import { useCVStore } from "@/lib/store/cv-store";
+import { getSessionController } from "@/lib/draft-session";
 import {
   buildBulletPrompt as buildPrompt,
   guideFor,
@@ -241,7 +242,15 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
   const handleGenerateAI = async () => {
     if (isGenerating) return;
 
+    const sessionController = getSessionController();
+    const currentOwner = sessionController.getCurrentOwner();
+    if (currentOwner.kind !== "account") {
+      setErrorMessage("In-app AI generation requires a verified 42 student account. In guest mode, please use the offline Copy Prompt and paste your bullets below.");
+      return;
+    }
+
     const targetIdAtStart = target.item.id;
+    const genAtStart = sessionController.getGeneration();
 
     setIsGenerating(true);
     setErrorMessage(null);
@@ -283,8 +292,8 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
         signal: controller.signal,
       });
 
-      // Stale request check: ignore if aborted or target changed
-      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart) {
+      // Stale request check: ignore if aborted, target changed, or session generation changed
+      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart || sessionController.getGeneration() !== genAtStart) {
         return;
       }
 
@@ -306,7 +315,7 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
       }
 
       // Check stale request after body read
-      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart) {
+      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart || sessionController.getGeneration() !== genAtStart) {
         return;
       }
 

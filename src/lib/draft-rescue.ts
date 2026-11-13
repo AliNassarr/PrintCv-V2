@@ -1,15 +1,23 @@
 // Ways out of a broken saved draft, used by the error pages. No store import, so they still work when the store fails.
-import { CV_STORE_KEY } from "@/lib/cv-constants";
+import { CV_STORE_KEY, DRAFTS_KEY_PREFIX, WORKSPACE_STORAGE_KEY } from "@/lib/cv-constants";
+import { getSessionController } from "@/lib/draft-session";
+import { createRecoveryRecordSync, withDraftsLock } from "@/lib/draft-repository";
+import { ownerToKey, isValidStudentId, DraftOwner } from "@/lib/draft-types";
 
 export function readSavedDraft(): string | null {
   try {
-    return localStorage.getItem(CV_STORE_KEY);
-  } catch {
-    return null;
-  }
+    const controller = getSessionController(), state = controller.getState(), owner = controller.getCurrentOwner();
+    if (!["EDITING_ACCOUNT", "EDITING_GUEST", "RECOVERY_BLOCKED"].includes(state.state)) return null;
+    const auth = controller.getAuthState();
+    if (owner.kind === "unassigned" || owner.kind === "account" &&
+      (auth.status !== "authenticated" || auth.user.id !== owner.studentId)) return null;
+    const record = controller.getCurrentDraft();
+    if (!record || ownerToKey(record.owner) !== ownerToKey(owner)) return null;
+    return JSON.stringify(record);
+  } catch { return null; }
 }
 
-/** Downloads the saved draft exactly as stored, as printcv-draft.json. */
+/** Downloads the saved draft scoped to the current active workspace/guest, never bundling other accounts. */
 export function downloadSavedDraft(): void {
   const saved = readSavedDraft();
   if (!saved) return;
@@ -23,13 +31,9 @@ export function downloadSavedDraft(): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Asks first, then clears the saved draft and opens a fresh editor. */
-export function startAgain(): void {
-  if (!confirm("This clears the CV saved in this browser.")) return;
-  try {
-    localStorage.removeItem(CV_STORE_KEY);
-  } catch {
-    // Nothing more we can do; the editor will still open
-  }
-  location.assign("/studio");
+/** Asks first, preserves recovery backup, then clears current draft and opens a fresh editor. */
+export async function startAgain(): Promise<void> {
+  if (!confirm("This resets your current CV draft in this browser. A backup copy will be preserved.")) return;
+  const result = await getSessionController().resetDraft();
+  if (!result.success && typeof alert === "function") alert(result.error || "Your draft could not be reset.");
 }
