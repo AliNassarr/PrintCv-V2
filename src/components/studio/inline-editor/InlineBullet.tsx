@@ -38,6 +38,7 @@ export function InlineBullet({
   const isCommittingRef = useRef(false);
   const isCancelledRef = useRef(false);
   const shouldRestoreFocusRef = useRef(false);
+  const displayId = useId();
 
   const updateProjectBullet = useCVStore((s) => s.updateProjectBullet);
   const removeProjectBullet = useCVStore((s) => s.removeProjectBullet);
@@ -146,6 +147,7 @@ export function InlineBullet({
         tabIndex={0}
         role="button"
         aria-label={`Edit project bullet point ${bulletIndex + 1}`}
+        aria-labelledby={`${displayId}-display ${displayId}-action`}
         onClick={(e) => {
           e.stopPropagation();
           isCancelledRef.current = false;
@@ -165,11 +167,14 @@ export function InlineBullet({
         } ${className}`}
         style={style}
       >
-        {isBlank ? (
-          <span className="italic text-gray-400 select-none">{placeholder}</span>
-        ) : (
-          children || draft
-        )}
+        <span id={`${displayId}-display`} className="inline">
+          {isBlank ? (
+            <span className="italic text-gray-600 select-none">{placeholder}</span>
+          ) : (
+            children || draft
+          )}
+        </span>
+        <span id={`${displayId}-action`} className="sr-only">Edit project bullet point {bulletIndex + 1}</span>
         <span
           className="ml-1.5 hidden group-hover/bullet:inline-flex text-[10px] font-sans font-medium text-amber-800 bg-amber-100 px-1 py-0.2 rounded border border-amber-300 pointer-events-none print:hidden align-middle select-none"
           aria-hidden="true"

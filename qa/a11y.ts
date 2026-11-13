@@ -42,19 +42,23 @@ async function check(page: Page, screen: string, w: number, expect?: string) {
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const { proc, page } = await launch(9352);
-  const on = events(page);
-  try {
-    await page.send("Runtime.enable");
-    await page.send("Emulation.setFocusEmulationEnabled", { enabled: true });
-    for (const w of WIDTHS) {
+  for (const [widthIndex, w] of WIDTHS.entries()) {
+    // Isolate desktop and mobile journeys so persisted guest drafts from the first viewport
+    // cannot change the first-run state being checked at the next viewport.
+    const { proc, page } = await launch(9352 + widthIndex);
+    const on = events(page);
+    try {
+      await page.send("Runtime.enable");
+      await page.send("Emulation.setFocusEmulationEnabled", { enabled: true });
       await page.viewport(w, HEIGHTS[w] ?? 900, w < 640);
       const visit: Visit = (screen, width, expect) => check(page, screen, width, expect);
       await walkLanding(page, w, visit, want);
       if (want("not-found")) { await page.goto(ROOT + "/nope", 1500); await check(page, "not-found", w, `document.body.innerText.includes('We could not find this page')`); }
       await walkStudio(page, w, on, visit, want);
+    } finally {
+      proc.kill();
     }
-  } finally { proc.kill(); }
+  }
 
   // Every rule once, with the screens it was found on
   const rules = new Map<string, { id: string; impact: string; help: string; where: string[]; nodes: Node[] }>();

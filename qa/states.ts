@@ -87,6 +87,101 @@ export async function seed(page: Page, value: string | null) {
 export async function openStudio(page: Page, value: string | null, query = "") {
   await seed(page, value);
   await page.goto(STUDIO + query, 2500);
+  if (!value) {
+    let state = "missing-controller";
+    for (let i = 0; i < 40; i++) {
+      state = await page.eval<string>(`window.__PRINTCV_CONTROLLER__?.getState()?.state || "missing-controller"`);
+      if (state === "WELCOME" || state === "EDITING_GUEST" || state === "EDITING_ACCOUNT") return;
+      if (state === "RECOVERY_BLOCKED" || state === "SESSION_UNKNOWN") break;
+      await sleep(250);
+    }
+    throw new Error(`Welcome screen did not become ready (state: ${state}).`);
+  }
+
+  // A saved global draft is intentionally unassigned. Follow the same explicit
+  // ownership review and copy flow as a student instead of treating storage as
+  // an already selected editor session.
+  let state = "missing-controller";
+  let reviewButtonText = "";
+  for (let i = 0; i < 40; i++) {
+    const review = await page.eval<{ state: string; button: string }>(`
+      (() => {
+        const state = window.__PRINTCV_CONTROLLER__?.getState()?.state || "missing-controller";
+        const wanted = state === "WELCOME" ? "Review Previous session draft" : "Review Legacy Draft";
+        const button = [...document.querySelectorAll("button")].find((item) =>
+          item.textContent?.includes(wanted) && item.getBoundingClientRect().width > 0 && item.getBoundingClientRect().height > 0
+        );
+        return { state, button: button?.textContent?.trim() || "" };
+      })()
+    `);
+    state = review.state;
+    reviewButtonText = review.button;
+    if (reviewButtonText) break;
+    await sleep(250);
+  }
+  if (!reviewButtonText) {
+    throw new Error(`Previous draft review did not become available (state: ${state}).`);
+  }
+  if (!(await click(page, "button", reviewButtonText))) {
+    throw new Error("Expected explicit review action for the previous session draft.");
+  }
+  await sleep(250);
+  const dialogText = await page.eval<string>(`document.querySelector('[role="dialog"]')?.innerText || ""`);
+  if (!dialogText.includes("Review Browser Draft") || !dialogText.includes("Keep Separate")) {
+    throw new Error("The previous session draft review dialog did not show its ownership choices.");
+  }
+  if (!(await click(page, '[role="dialog"] button', "Copy to Workspace"))) {
+    throw new Error("The reviewed draft could not be explicitly copied into the guest workspace.");
+  }
+  await sleep(1200);
+  const copied = await page.eval<{ state: string; name: string }>(`
+    (() => ({
+      state: window.__PRINTCV_CONTROLLER__?.getState()?.state || "missing-controller",
+      name: window.__PRINTCV_CONTROLLER__?.getCurrentDraft()?.snapshot?.cvData?.contact?.fullName || "",
+    }))()
+  `);
+  const expectedName = JSON.parse(value).state?.cvData?.contact?.fullName || "";
+  if (copied.state !== "EDITING_GUEST" || (expectedName && copied.name !== expectedName)) {
+    throw new Error(`Explicit draft copy did not open the selected guest draft (state: ${copied.state}, expected name matched: ${copied.name === expectedName}).`);
+  }
+}
+
+// Deterministic synthetic session for account-only browser states; never contacts 42.
+export async function openAuthenticatedStudio(page: Page) {
+  await seed(page, null);
+  await page.send("Fetch.enable", { patterns: [{ urlPattern: "*api/auth/session*", requestStage: "Request" }] });
+  const mockUser = { ...user, id: 101, login: "keyboard-qa", displayname: "Keyboard QA" };
+  page.on("Fetch.requestPaused", async (params: any) => {
+    try {
+      const body = params.request.method === "DELETE"
+        ? { success: true }
+        : { authenticated: true, fresh: false, user: mockUser };
+      await page.send("Fetch.fulfillRequest", {
+        requestId: params.requestId,
+        responseCode: 200,
+        responseHeaders: [
+          { name: "Content-Type", value: "application/json" },
+          { name: "Cache-Control", value: "no-store" },
+        ],
+        body: Buffer.from(JSON.stringify(body)).toString("base64"),
+      });
+    } catch (error) {
+      console.error("Mocked test session response failed:", String(error));
+    }
+  });
+  try {
+    await page.goto(STUDIO, 2000);
+    let state = "missing-controller";
+    for (let i = 0; i < 40; i++) {
+      const current = await page.eval<any>(`window.__PRINTCV_CONTROLLER__?.getState()`);
+      state = current?.state || "missing-controller";
+      if (state === "EDITING_ACCOUNT" && current.studentId === mockUser.id) return;
+      await sleep(250);
+    }
+    throw new Error(`Mocked authenticated editor did not become ready (state: ${state}).`);
+  } finally {
+    await page.send("Fetch.disable").catch(() => {});
+  }
 }
 
 // Opens a section from the section tabs (a tab row below 1024px, the step bar from 1024px: the same tablist)
@@ -148,7 +243,7 @@ export const escape = (page: Page) => page.eval(`document.dispatchEvent(new Keyb
 export async function walkStudio(page: Page, w: number, on: On, visit: Visit, want: Want) {
   if (want("studio-first-run")) {
     await openStudio(page, null);
-    await visit("studio-first-run", w, `document.body.innerText.includes('Start with your 42 projects')`);
+    await visit("studio-first-run", w, `document.body.innerText.includes('Continue as Guest') && document.querySelector('main h1')?.innerText === 'PrintCV'`);
   }
 
   // Each section with the fixture
@@ -167,6 +262,7 @@ export async function walkStudio(page: Page, w: number, on: On, visit: Visit, wa
     }
     // The account menu (the initials circle) takes its place from 1024px
     if (want("studio-account-menu") && w >= 1024) {
+      await openAuthenticatedStudio(page);
       await click(page, '[data-test-id="account-button"]'); await sleep(300);
       await visit("studio-account-menu", w, `document.querySelector('[role="menu"]')`);
       await escape(page); await sleep(200);
@@ -214,26 +310,24 @@ export async function walkStudio(page: Page, w: number, on: On, visit: Visit, wa
     await escape(page);
   }
 
-  // Help me write: step 1, 2, the parse error, step 3, then "Lines added" (an info toast)
+  // Help me write is an offline prompt and manual-paste workflow; never submit a paid AI request here.
   if (["studio-helper-1", "studio-helper-2", "studio-helper-3", "studio-helper-error", "studio-toast-info"].some(want)) {
     await openStudio(page, SEEDED);
     await click(page, '[data-test-id="helper-button"]'); await sleep(500);
-    await visit("studio-helper-1", w, `${DIALOG} && document.querySelector('[aria-current="step"]').innerText.includes('Answer')`);
+    await visit("studio-helper-1", w, `${DIALOG} && document.querySelector('[aria-current="step"]').innerText.includes('1.')`);
     await page.eval(`(() => { const t = ${DIALOG}.querySelector('textarea'); t.focus(); return true; })()`);
     await page.send("Input.insertText", { text: "A small web server in C++ that serves files and runs CGI scripts." });
-    await click(page, '[role="dialog"] button', "Next"); await sleep(400);
-    await visit("studio-helper-2", w, `document.querySelector('[aria-current="step"]').innerText.includes('Copy')`);
-    await click(page, '[role="dialog"] button', "Next"); await sleep(400);
-    await page.eval(`(() => { document.querySelector('#ai-reply').focus(); return true; })()`);
-    await page.send("Input.insertText", { text: "Here are your lines:" });
-    await sleep(300);
-    await visit("studio-helper-error", w, `${DIALOG}.querySelector('[role="alert"]')`);
-    await page.eval(`(() => { const t = document.querySelector('#ai-reply'); t.focus(); t.select(); return true; })()`);
+    await click(page, '[role="dialog"] button', "Next: Generate Bullets"); await sleep(400);
+    await visit("studio-helper-2", w, `document.querySelector('[aria-current="step"]').innerText.includes('Generate')`);
+    await click(page, '[role="dialog"] [aria-label="Help Me Write Steps"] button', "3. Review"); await sleep(400);
+    await click(page, '[role="dialog"] button', "Paste External AI Reply"); await sleep(250);
+    await visit("studio-helper-error", w, `document.querySelector('#manual-ai-reply') && [...${DIALOG}.querySelectorAll('button')].some((b) => b.innerText.includes('Replace My Lines') && b.disabled)`);
+    await page.eval(`(() => { const t = document.querySelector('#manual-ai-reply'); t.focus(); return true; })()`);
     await page.send("Input.insertText", { text: "- Built an HTTP/1.1 server in C++ that served static files and CGI scripts.\n- Fixed two memory leaks found with Valgrind under load.\n- Tested the server with siege at 500 open connections." });
     await sleep(400);
-    await visit("studio-helper-3", w, `${DIALOG}.innerText.includes('We found 3 lines')`);
-    await click(page, '[role="dialog"] button', "Replace my lines"); await sleep(500);
-    await visit("studio-toast-info", w, `document.body.innerText.includes('Lines added')`);
+    await visit("studio-helper-3", w, `${DIALOG}.innerText.includes('Parsed 3 bullet point(s)') && ${DIALOG}.innerText.includes('Add Below Mine')`);
+    await click(page, '[role="dialog"] button', "Add Below Mine"); await sleep(500);
+    await visit("studio-toast-info", w, `!document.querySelector('[role="dialog"]')`);
   }
 
   // Undo toast after removing a project

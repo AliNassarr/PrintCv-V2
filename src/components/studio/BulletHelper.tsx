@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Check, Copy, ExternalLink, Sparkles, FileText, HelpCircle, MessageSquareText, AlertTriangle } from "lucide-react";
 import { useCVStore } from "@/lib/store/cv-store";
+import { getSessionController } from "@/lib/draft-session";
 import {
   buildBulletPrompt as buildPrompt,
   guideFor,
@@ -13,9 +14,10 @@ import {
   HelperTarget,
   usedOpeningWords,
   parseBulletsFromAI as parseReply,
+  prepareGeneratedCandidates,
 } from "@/lib/bullet-helper";
 import { ProjectArchetype } from "@/lib/project-guide";
-import { ReadmeParseResult } from "@/lib/readme-parser";
+import { ReadmeParseResult, extractReadmeSections } from "@/lib/readme-parser";
 import { DialogFrame } from "@/components/ui/DialogFrame";
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/TextArea";
@@ -78,6 +80,20 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent<{slug:string;name:string;text:string}>).detail;
+      if (!detail || target.kind !== "project" || target.item.slug !== detail.slug) return;
+      const parsed = extractReadmeSections(detail.text);
+      setReadmeFile({ name: `${detail.name} README.md`, size: detail.text.length });
+      setReadmeContent(detail.text);
+      setReadmeParsed(parsed);
+      setActiveTab(0);
+    };
+    window.addEventListener("printcv:github-readme", receive);
+    return () => window.removeEventListener("printcv:github-readme", receive);
+  }, [target]);
 
   // Reset temporary state if target changes
   useEffect(() => {
@@ -241,7 +257,15 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
   const handleGenerateAI = async () => {
     if (isGenerating) return;
 
+    const sessionController = getSessionController();
+    const currentOwner = sessionController.getCurrentOwner();
+    if (currentOwner.kind !== "account") {
+      setErrorMessage("In-app AI generation requires a verified 42 student account. In guest mode, please use the offline Copy Prompt and paste your bullets below.");
+      return;
+    }
+
     const targetIdAtStart = target.item.id;
+    const genAtStart = sessionController.getGeneration();
 
     setIsGenerating(true);
     setErrorMessage(null);
@@ -283,8 +307,8 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
         signal: controller.signal,
       });
 
-      // Stale request check: ignore if aborted or target changed
-      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart) {
+      // Stale request check: ignore if aborted, target changed, or session generation changed
+      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart || sessionController.getGeneration() !== genAtStart) {
         return;
       }
 
@@ -306,7 +330,7 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
       }
 
       // Check stale request after body read
-      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart) {
+      if (controller.signal.aborted || activeTargetIdRef.current !== targetIdAtStart || sessionController.getGeneration() !== genAtStart) {
         return;
       }
 
@@ -396,6 +420,7 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
         }
 
         const returnedBullets: string[] = Array.isArray(data.bullets) ? data.bullets : [];
+        const returnedCandidates: Array<{ text?: string; unverifiedMetric?: boolean }> = Array.isArray(data.candidates) ? data.candidates : [];
 
         // Explicit empty response handling
         if (returnedBullets.length === 0) {
@@ -406,11 +431,11 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
         }
 
         // Success: populate candidate bullets and transition to Review Studio tab
-        const newCandidates: BulletCandidateItem[] = returnedBullets.map((b, i) => ({
-          id: `candidate-${i}-${Date.now()}`,
-          text: b,
-          selected: true,
-        }));
+        const newCandidates: BulletCandidateItem[] = prepareGeneratedCandidates(
+          returnedBullets,
+          returnedCandidates,
+          data.hasSufficientEvidence !== false,
+        );
         setCandidates(newCandidates);
         setActiveTab(2); // Automatically advance to Candidate Review Studio
       }

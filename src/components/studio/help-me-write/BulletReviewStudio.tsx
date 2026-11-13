@@ -19,6 +19,8 @@ export interface BulletCandidateItem {
   id: string;
   text: string;
   selected: boolean;
+  unverifiedMetric?: boolean;
+  evidenceInsufficient?: boolean;
 }
 
 interface BulletReviewStudioProps {
@@ -175,6 +177,8 @@ export function BulletReviewStudio({
                 {checks.isEmpty && <Pill tone="warning">Empty bullet</Pill>}
                 {checks.goodStart && <Pill tone="positive">Strong action start</Pill>}
                 {checks.number && <Pill tone="neutral">Has metrics/numbers</Pill>}
+                {c.unverifiedMetric && <Pill tone="warning">Metric needs verification</Pill>}
+                {c.evidenceInsufficient && <Pill tone="warning">More evidence needed</Pill>}
                 {checks.tooLong && <Pill tone="warning">Exceeds 220 chars</Pill>}
               </div>
 

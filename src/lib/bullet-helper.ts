@@ -26,6 +26,21 @@ export type HelperTarget =
 export type HelperAnswer = string | string[];
 export type HelperAnswers = Record<string, HelperAnswer>;
 
+export function prepareGeneratedCandidates(
+  bullets: string[],
+  quality: Array<{ unverifiedMetric?: boolean }> = [],
+  hasSufficientEvidence = true,
+  idSeed = Date.now(),
+) {
+  return bullets.map((text, index) => ({
+    id: `candidate-${index}-${idSeed}`,
+    text,
+    unverifiedMetric: quality[index]?.unverifiedMetric === true,
+    evidenceInsufficient: !hasSufficientEvidence,
+    selected: hasSufficientEvidence && quality[index]?.unverifiedMetric !== true,
+  }));
+}
+
 const MAX_BULLETS = 6;
 
 export function guideFor(target: HelperTarget): ProjectGuide | undefined {

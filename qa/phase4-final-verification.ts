@@ -4,7 +4,7 @@
 // two-way sidebar sync, keyboard-only workflows, viewports, zoom levels, level protection,
 // and real PDF / DOCX artifact generation and inspection.
 //
-// Run: npx --node-options="--experimental-websocket" tsx qa/phase4-final-verification.ts
+// Run: node --experimental-websocket --import tsx qa/phase4-final-verification.ts
 
 import fs from "fs";
 import JSZip from "jszip";
@@ -13,8 +13,8 @@ import { testUser, TEST_PHONE } from "./fixtures/user";
 import { createInitialCVFromIntra } from "../src/lib/intra/cv-from-intra";
 import { generateCvDocx } from "../src/lib/docx-generator";
 
-const BASE = "http://localhost:3000/studio";
-const OUT = "qa/out";
+const BASE = (process.env.BASE || "http://localhost:3000") + "/studio";
+const OUT = process.env.PRINTCV_QA_OUT || "qa/out";
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -100,6 +100,68 @@ async function run() {
     console.log("Navigating to /studio with seeded draft...");
     await page.goto(BASE, 3000);
 
+    // The current app never auto-loads a prior global draft. It first migrates
+    // a validated copy to an unassigned record, then asks the user to review
+    // and explicitly copy that draft into a guest workspace. Exercise that
+    // real flow before testing the editor instead of bypassing ownership.
+    const welcomeState = await page.eval<string>(
+      `window.__PRINTCV_CONTROLLER__?.getState()?.state || "missing-controller"`
+    );
+    recordTest("Draft review", "MIG-01", "Legacy draft remains unassigned until explicitly reviewed", welcomeState === "WELCOME", `state: ${welcomeState}`);
+
+    const reviewClicked = await page.eval<boolean>(`
+      (() => {
+        const button = Array.from(document.querySelectorAll("button")).find((item) =>
+          item.textContent?.includes("Review Previous session draft")
+        );
+        if (!button) return false;
+        button.click();
+        return true;
+      })()
+    `);
+    recordTest("Draft review", "MIG-02", "User can open explicit review for a previous session draft", reviewClicked);
+    await sleep(300);
+
+    const reviewDialog = await page.eval<string>(`
+      (() => {
+        const dialog = document.querySelector('[role="dialog"]');
+        return dialog?.innerText || "";
+      })()
+    `);
+    const reviewReady = reviewDialog.includes("Review Browser Draft") &&
+      reviewDialog.includes("Sarah Connor") && reviewDialog.includes("Copy to Workspace") &&
+      reviewDialog.includes("Keep Separate");
+    recordTest("Draft review", "MIG-03", "Review dialog exposes source identity, Copy, and Keep Separate choices", reviewReady);
+
+    const copyClicked = await page.eval<boolean>(`
+      (() => {
+        const dialog = document.querySelector('[role="dialog"]');
+        const button = Array.from(dialog?.querySelectorAll("button") || []).find((item) =>
+          item.textContent?.trim() === "Copy to Workspace"
+        );
+        if (!button) return false;
+        button.click();
+        return true;
+      })()
+    `);
+    recordTest("Draft review", "MIG-04", "User explicitly confirms copying into the guest workspace", copyClicked);
+    await sleep(1400);
+
+    const copiedDraft = await page.eval<{ state: string; name: string; preview: string }>(`
+      (() => ({
+        state: window.__PRINTCV_CONTROLLER__?.getState()?.state || "missing-controller",
+        name: window.__PRINTCV_CONTROLLER__?.getCurrentDraft()?.snapshot?.cvData?.contact?.fullName || "",
+        preview: document.querySelector("#resume-preview")?.innerText || "",
+      }))()
+    `);
+    recordTest(
+      "Draft review",
+      "MIG-05",
+      "Confirmed legacy copy opens the guest editor with the reviewed CV",
+      copiedDraft.state === "EDITING_GUEST" && copiedDraft.name === "Sarah Connor" && copiedDraft.preview.includes("Sarah Connor"),
+      `state: ${copiedDraft.state}, name present: ${copiedDraft.name === "Sarah Connor"}`
+    );
+
     // =========================================================================
     // SUITE 1: ALL EDITABLE FIELDS IN LIVE PREVIEW
     // =========================================================================
@@ -150,7 +212,7 @@ async function run() {
     `);
     await sleep(400);
     const updatedRoleInPreview = await page.eval<string>(`document.querySelector('#resume-preview')?.innerText || ""`);
-    const roleHasLevel = updatedRoleInPreview.includes("Entry-Level Systems Developer – Level 11.45");
+    const roleHasLevel = /Entry-Level Systems Developer[\s\S]{0,80}Level 11\.45/.test(updatedRoleInPreview);
     recordTest("SUITE 1", "TC-E02", "Target Role inline edit with preserved level", roleHasLevel);
 
     // 1.3 Contact Email
@@ -374,7 +436,7 @@ async function run() {
     `);
     await sleep(400);
     const updatedEduText = await page.eval<string>(`document.querySelector('#resume-preview')?.innerText || ""`);
-    const eduHasLevel = updatedEduText.includes("42 Abu Dhabi Campus – Level 11.45");
+    const eduHasLevel = /42 Abu Dhabi Campus[\s\S]{0,80}Level 11\.45/.test(updatedEduText);
     recordTest("SUITE 1", "TC-E12", "Education institution inline edit preserving Level 11.45", eduHasLevel);
 
     // 1.13 Education Program (Protected Dr. Wissam title verification)
@@ -578,9 +640,9 @@ async function run() {
 
     const reloadedPreviewText = await page.eval<string>(`document.querySelector('#resume-preview')?.innerText || ""`);
     const persistedName = reloadedPreviewText.includes("Sarah Connor Commander");
-    const persistedRole = reloadedPreviewText.includes("Entry-Level Systems Developer – Level 11.45");
+    const persistedRole = /Entry-Level Systems Developer[\s\S]{0,80}Level 11\.45/.test(reloadedPreviewText);
     const persistedSkills = reloadedPreviewText.includes("Rust, Zig");
-    const persistedEdu = reloadedPreviewText.includes("42 Abu Dhabi Campus – Level 11.45");
+    const persistedEdu = /42 Abu Dhabi Campus[\s\S]{0,80}Level 11\.45/.test(reloadedPreviewText);
 
     recordTest("SUITE 4", "TC-P01", "Full Name persisted across page reload", persistedName);
     recordTest("SUITE 4", "TC-P02", "Target Role & Level 11.45 persisted across reload", persistedRole);
@@ -633,10 +695,52 @@ async function run() {
 
     for (const vp of viewports) {
       await page.viewport(vp.width, vp.height, vp.mobile);
+      if (vp.width < 1024) {
+        const previewButtonClicked = await page.eval<boolean>(`
+          (() => {
+            const group = document.querySelector('[role="group"][aria-label="Show"]');
+            const button = Array.from(group?.querySelectorAll("button") || []).find((item) => item.textContent?.trim() === "Preview");
+            if (!button) return false;
+            button.click();
+            return true;
+          })()
+        `);
+        recordTest("SUITE 6", `TC-V-PREVIEW-${vp.name}`, `Preview is a real selectable pane at ${vp.width}px`, previewButtonClicked);
+      }
       await sleep(300);
-      const isPreviewPresent = await page.eval<boolean>(`Boolean(document.querySelector('#resume-preview'))`);
+      const layout = await page.eval<{ visible: boolean; scrollWidth: number; width: number; offenders: string[] }>(`
+        (() => {
+          const preview = document.querySelector("#resume-preview");
+          const rect = preview?.getBoundingClientRect();
+          const width = document.documentElement.clientWidth;
+          return {
+            visible: !!rect && rect.width > 0 && rect.height > 0 && getComputedStyle(preview).visibility !== "hidden",
+            scrollWidth: document.documentElement.scrollWidth,
+            width,
+            offenders: [...document.querySelectorAll("body *")].map((element) => {
+              const bounds = element.getBoundingClientRect();
+              const name = [element.tagName.toLowerCase(), element.id, String(element.className || "").split(" ").slice(0, 3).join(".")].filter(Boolean).join("#");
+              const ancestors = [];
+              for (let parent = element.parentElement, depth = 0; parent && depth < 4; parent = parent.parentElement, depth++) {
+                const style = getComputedStyle(parent);
+                const parentRect = parent.getBoundingClientRect();
+                ancestors.push([parent.tagName.toLowerCase(), String(parent.className || "").split(" ").slice(0, 3).join("."), "overflow:" + style.overflowX, Math.round(parentRect.left) + "-" + Math.round(parentRect.right)].join(" "));
+              }
+              const text = element.tagName === "BUTTON" ? element.textContent?.trim().slice(0, 30) || "" : "";
+              const label = element.getAttribute("aria-label") || element.getAttribute("title") || "";
+              return { name, text, label, ancestors, left: Math.round(bounds.left), right: Math.round(bounds.right), width: Math.round(bounds.width) };
+            }).filter((item) => item.width > 0 && item.left >= 0 && item.right > width + 1).slice(0, 8).map((item) => item.name + "[" + item.text + "," + item.label + "] " + item.left + "-" + item.right + " via " + item.ancestors.join(" <- ")),
+          };
+        })()
+      `);
       await page.shot(`${OUT}/phase4-viewport-${vp.name}.png`);
-      recordTest("SUITE 6", `TC-V-${vp.name}`, `Viewport ${vp.name} (${vp.width}x${vp.height}) renders preview layout cleanly`, isPreviewPresent);
+      recordTest(
+        "SUITE 6",
+        `TC-V-${vp.name}`,
+        `Viewport ${vp.name} (${vp.width}x${vp.height}) shows the CV without page overflow`,
+        layout.visible && layout.scrollWidth <= layout.width + 1,
+        `visible: ${layout.visible}, scroll width: ${layout.scrollWidth}, viewport width: ${layout.width}, overflow elements: ${layout.offenders.join("; ") || "none"}`
+      );
     }
 
     // Reset to desktop viewport
@@ -647,46 +751,76 @@ async function run() {
     // =========================================================================
     console.log("\n[SUITE 7] Testing Preview Zoom Level Scaling Stability");
 
-    const zooms = [0.5, 0.75, 1.0, 1.25];
-    for (const z of zooms) {
-      await page.eval(`
-        (() => {
-          const preview = document.querySelector('#resume-preview');
-          if (preview) preview.style.transform = 'scale(${z})';
+    const zooms = [50, 75, 100, 125];
+    for (const percent of zooms) {
+      const selectedZoom = await page.eval<{ percent: number; scale: number }>(`
+        (async () => {
+          const group = document.querySelector('[role="group"][aria-label="Zoom"]');
+          const buttons = Array.from(group?.querySelectorAll("button") || []);
+          const realSize = buttons.find((button) => button.textContent?.trim() === "100%");
+          const plus = group?.querySelector('button[aria-label="Zoom in"]');
+          const minus = group?.querySelector('button[aria-label="Zoom out"]');
+          if (!realSize || !plus || !minus) return { percent: -1, scale: -1 };
+          realSize.click();
+          await new Promise((resolve) => setTimeout(resolve, 80));
+          const delta = ((${percent} - 100) / 5);
+          const control = delta < 0 ? minus : plus;
+          for (let i = 0; i < Math.abs(delta); i++) {
+            control.click();
+            await new Promise((resolve) => setTimeout(resolve, 40));
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const labelText = Array.from(group.querySelectorAll("span")).map((span) => span.textContent?.trim() || "").find((text) => /^\\d+%$/.test(text)) || "-1%";
+          const label = Number.parseInt(labelText, 10);
+          const transform = getComputedStyle(document.querySelector("#resume-preview")).transform;
+          const scale = Number(transform.match(/^matrix\\(([^,]+)/)?.[1] || "-1");
+          return { percent: label, scale };
         })()
       `);
-      await sleep(200);
+      const zoomMatchesControl = selectedZoom.percent === percent && Math.abs(selectedZoom.scale - percent / 100) < 0.01;
+      recordTest("SUITE 7", `TC-Z-CONTROL-${percent}`, `Visible zoom control sets exactly ${percent}%`, zoomMatchesControl, `label: ${selectedZoom.percent}%, scale: ${selectedZoom.scale}`);
 
-      // Click to edit Project Name while zoomed
-      await page.eval(`
+      const editPoint = await page.eval<{ x: number; y: number; visible: boolean }>(`
         (() => {
-          const el = document.querySelector('[aria-label="Edit Project Name"]');
-          el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          const element = document.querySelector('[aria-label="Edit Project Name"]');
+          if (!element) return { x: 0, y: 0, visible: false };
+          element.scrollIntoView({ block: "center", inline: "center" });
+          const rect = element.getBoundingClientRect();
+          return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, visible: rect.width > 0 && rect.height > 0 };
         })()
       `);
+      if (editPoint.visible) {
+        await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: editPoint.x, y: editPoint.y, button: "left", clickCount: 1 });
+        await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: editPoint.x, y: editPoint.y, button: "left", clickCount: 1 });
+      }
       await sleep(300);
-
-      const isInputActiveWhileZoomed = await page.eval<boolean>(`Boolean(document.querySelector('input[aria-label="Edit Project Name"]'))`);
-      await page.eval(`
+      const editState = await page.eval<{ visible: boolean; intersectsPage: boolean }>(`
         (() => {
-          const inp = document.querySelector('input[aria-label="Edit Project Name"]');
-          if (inp) inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+          const input = document.querySelector('input[aria-label="Edit Project Name"]');
+          const sheet = document.querySelector("#resume-preview");
+          const r = input?.getBoundingClientRect();
+          const s = sheet?.getBoundingClientRect();
+          return {
+            visible: !!r && r.width > 0 && r.height > 0,
+            intersectsPage: !!r && !!s && r.right > s.left && r.left < s.right && r.bottom > s.top && r.top < s.bottom,
+          };
         })()
       `);
+      recordTest(
+        "SUITE 7",
+        `TC-Z-EDIT-${percent}`,
+        `Project name remains clickable and inline editing stays on the page at ${percent}%`,
+        zoomMatchesControl && editPoint.visible && editState.visible && editState.intersectsPage,
+        `target visible: ${editPoint.visible}, input visible: ${editState.visible}, intersects page: ${editState.intersectsPage}`
+      );
+      await page.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 });
+      await page.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 });
       await sleep(200);
+      const editorClosed = await page.eval<boolean>(`!document.querySelector('input[aria-label="Edit Project Name"]')`);
+      recordTest("SUITE 7", `TC-Z-ESC-${percent}`, `Real Escape key closes inline editor at ${percent}%`, editorClosed);
 
-      await page.shot(`${OUT}/phase4-zoom-${Math.round(z * 100)}.png`);
-      recordTest("SUITE 7", `TC-Z-${Math.round(z * 100)}`, `Inline editing mounts and stays aligned at zoom scale ${Math.round(z * 100)}%`, isInputActiveWhileZoomed);
+      await page.shot(`${OUT}/phase4-zoom-${percent}.png`);
     }
-
-    // Reset zoom
-    await page.eval(`
-      (() => {
-        const preview = document.querySelector('#resume-preview');
-        if (preview) preview.style.transform = 'scale(1)';
-      })()
-    `);
-    await sleep(200);
 
     // =========================================================================
     // SUITE 8: 42 LEVEL & TEMPLATE INVARIANT VERIFICATION

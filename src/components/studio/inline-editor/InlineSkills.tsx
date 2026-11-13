@@ -114,6 +114,7 @@ export function InlineSkills({
         tabIndex={0}
         role="button"
         aria-label={`Edit ${categoryLabel} skills list`}
+        aria-labelledby={`${inputId}-display ${inputId}-action`}
         onClick={(e) => {
           e.stopPropagation();
           isCancelledRef.current = false;
@@ -129,15 +130,18 @@ export function InlineSkills({
         }}
         title="Click to edit skills"
         className={`group/skills relative inline cursor-text rounded px-1 -mx-1 transition-colors hover:bg-amber-100/60 hover:outline hover:outline-1 hover:outline-amber-400 focus-visible:outline-2 focus-visible:outline-amber-500 print:hover:bg-transparent print:hover:outline-none ${
-          isBlank ? "text-gray-400 italic font-normal" : ""
+          isBlank ? "text-gray-600 italic font-normal" : ""
         } ${className}`}
         style={style}
       >
-        {isBlank ? (
-          <span className="italic text-gray-400 select-none">{placeholder}</span>
-        ) : (
-          children || skills.join(", ")
-        )}
+        <span id={`${inputId}-display`} className="inline">
+          {isBlank ? (
+            <span className="italic text-gray-600 select-none">{placeholder}</span>
+          ) : (
+            children || skills.join(", ")
+          )}
+        </span>
+        <span id={`${inputId}-action`} className="sr-only">Edit {categoryLabel} skills list</span>
         <span
           className="ml-1 hidden group-hover/skills:inline-flex text-[10px] font-sans font-medium text-amber-800 bg-amber-100 px-1 py-0.2 rounded border border-amber-300 pointer-events-none print:hidden align-middle select-none"
           aria-hidden="true"

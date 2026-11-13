@@ -8,6 +8,8 @@ import { scoreLabel } from "@/lib/cv-score";
 import { cx } from "@/lib/cx";
 import { LOGIN_URL } from "@/lib/auth-urls";
 import { AccountMenu, MoreMenu } from "./MoreMenu";
+import type { SaveStatus } from "@/lib/store/cv-store";
+import { getSessionController } from "@/lib/draft-session";
 
 // Two letters for the account circle, from the 42 display name or the login
 const initialsOf = (displayname?: string, login?: string) => {
@@ -29,6 +31,7 @@ export function StudioTopBar({
   account,
   onOpenOrder,
   onLogout,
+  saveStatus = "saved",
 }: {
   cvName: string;
   score: number;
@@ -40,7 +43,19 @@ export function StudioTopBar({
   account: { login: string; displayname?: string } | null;
   onOpenOrder: () => void;
   onLogout: () => void;
+  saveStatus?: SaveStatus;
 }) {
+  const saveLabel =
+    saveStatus === "saving"
+      ? "Saving..."
+      : saveStatus === "conflict"
+      ? "Save conflict"
+      : saveStatus === "error"
+      ? "Save failed"
+      : saveStatus === "memory"
+      ? "Memory only (not saved)"
+      : "Saved in this browser";
+
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 bg-ground px-4 lg:col-span-full lg:row-start-1 print:hidden">
       {/* Logo tile, then "PrintCV" from 1024px */}
@@ -54,13 +69,23 @@ export function StudioTopBar({
       {/* CV name and the saved line */}
       <div className="hidden min-w-0 flex-1 items-baseline gap-3 sm:flex">
         <p className="truncate text-app-md font-medium">{cvName}</p>
-        <p className="hidden shrink-0 text-app-sm text-muted lg:block">Saved in this browser</p>
+        <p
+          className={cx(
+            "hidden shrink-0 text-app-sm lg:block",
+            saveStatus === "conflict" || saveStatus === "error"
+              ? "text-red-600 font-medium"
+              : saveStatus === "memory"
+              ? "text-amber-600 font-medium"
+              : "text-muted"
+          )}
+        >
+          {saveLabel}
+        </p>
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <button type="button" data-test-id="score-button" title="See your CV score" onClick={onOpenScore}
           className="inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-control px-3 hover:bg-active sm:h-8 sm:min-w-0">
-          {/* Below md the bare number gets its scale; screen readers hear "out of 100" instead of "slash 100" */}
           <span className="text-app font-medium tabular-nums">
             {score}
             <span className="font-normal text-muted md:hidden">
@@ -90,6 +115,9 @@ export function StudioTopBar({
             <AccountMenu login={account.login} initials={initialsOf(account.displayname, account.login)} onLogout={onLogout} />
           ) : (
             <a href={LOGIN_URL}
+              onClick={async () => {
+                try { await getSessionController().flush(); } catch {}
+              }}
               className={cx(
                 "inline-flex h-8 items-center justify-center rounded-control px-3 text-app font-medium transition-colors duration-150",
                 firstRun ? "bg-ink text-paper hover:bg-[#444444]" : "border border-control bg-paper text-ink hover:bg-raised",

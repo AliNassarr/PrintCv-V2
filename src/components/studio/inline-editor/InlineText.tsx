@@ -115,6 +115,7 @@ export function InlineText({
         tabIndex={0}
         role="button"
         aria-label={ariaLabel || `Edit ${placeholder}`}
+        aria-labelledby={`${inputId}-display ${inputId}-action`}
         onClick={(e) => {
           e.stopPropagation();
           isCancelledRef.current = false;
@@ -134,11 +135,14 @@ export function InlineText({
         } ${className}`}
         style={style}
       >
-        {isBlank ? (
-          <span className="italic text-gray-400 select-none">{placeholder}</span>
-        ) : (
-          children || draft
-        )}
+        <span id={`${inputId}-display`} className="inline">
+          {isBlank ? (
+            <span className="italic text-gray-600 select-none">{placeholder}</span>
+          ) : (
+            children || draft
+          )}
+        </span>
+        <span id={`${inputId}-action`} className="sr-only">{ariaLabel || `Edit ${placeholder}`}</span>
         <span
           className="ml-1 hidden group-hover/field:inline-flex text-[10px] font-sans font-medium text-amber-800 bg-amber-100 px-1 py-0.2 rounded border border-amber-300 pointer-events-none print:hidden align-middle select-none"
           aria-hidden="true"

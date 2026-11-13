@@ -4,6 +4,7 @@ import React, { cloneElement, useEffect, useId, useRef, useState, type ReactElem
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { LOGIN_URL } from "@/lib/auth-urls";
+import { getSessionController } from "@/lib/draft-session";
 
 const ITEM = "flex h-11 w-full items-center px-3 text-left text-app hover:bg-active";
 const LOGOUT_TITLE = "Log out. Your CV stays in this browser.";
@@ -87,7 +88,11 @@ function Menu({ label, button, heading, items }: { label: string; button: ReactE
             {items.map((item) => (
               <li key={item.label} role="none">
                 {"href" in item ? (
-                  <a role="menuitem" tabIndex={-1} href={item.href} title={item.title} className={ITEM}>{item.label}</a>
+                  <a role="menuitem" tabIndex={-1} href={item.href} title={item.title} className={ITEM}
+                    onClick={async () => {
+                      try { await getSessionController().flush(); } catch {}
+                    }}
+                  >{item.label}</a>
                 ) : (
                   <button type="button" role="menuitem" tabIndex={-1} onClick={pick(item.onSelect)} title={item.title} className={ITEM}>
                     {item.label}

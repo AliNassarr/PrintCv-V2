@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useCVStore } from "@/lib/store/cv-store";
+import { getSessionController } from "@/lib/draft-session";
 import { HeightBudget, TemplateSectionId } from "@/components/templates/CleanTemplate";
 import { CanvasPreviewViewport } from "./CanvasPreviewViewport";
 import { ScoreEngineModal } from "./ScoreEngineModal";
@@ -50,6 +51,7 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
 
   // Active section
   const [activeSection, setActiveSection] = useState<StudioSection>("PROJECTS");
+  const saveStatus = useCVStore((s) => s.saveStatus);
 
   // Below 1024px one pane shows at a time: the editor or the preview. From 1024px both show.
   const [pane, setPane] = useState<StudioPane>("edit");
@@ -288,17 +290,14 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
     });
   };
 
-  // Log out of 42 but keep the CV as it is
+  // Log out of 42
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/session", { method: "DELETE" });
-    } catch (err) {
-      console.error("Logout failed:", err);
-    } finally {
-      setStudentProfile(null);
+    const controller = getSessionController();
+    const res = await controller.logout();
+    if (!res.success) {
       showToast({
-        title: "Logged out",
-        desc: "You are logged out. Your CV is still here.",
+        title: "Logout failed",
+        desc: res.error || "Could not confirm logout with the server.",
       });
     }
   };
@@ -343,6 +342,7 @@ export function ReziStudioLayout({ notice, onCloseNotice }: { notice?: string | 
         account={studentProfile}
         onOpenOrder={openOrder}
         onLogout={handleLogout}
+        saveStatus={saveStatus}
       />
 
       {/* The editor column. Below 1024px its parts sit straight in the page column; from 1024px it is one white card. */}

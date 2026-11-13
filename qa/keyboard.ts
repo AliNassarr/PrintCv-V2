@@ -8,11 +8,11 @@
 // More menu (768) open, move and close with the keys.
 // The manual NVDA pass (the status announces only the fits/longer flip) is not covered here.
 // Run with the server up:
-//   MSYS2_ENV_CONV_EXCL=STUDIO_PATH STUDIO_PATH=/studio OUT=qa/out/t15b npx tsx qa/keyboard.ts
+//   node --experimental-websocket --import tsx qa/keyboard.ts
 // Writes $OUT/keyboard.json, prints the orders and every failure, exits 1 on any failure.
 import fs from "fs";
 import { launch, Page } from "./cdp";
-import { ROOT, SEEDED, LONG, openStudio, section, sleep } from "./states";
+import { ROOT, SEEDED, LONG, openStudio, openAuthenticatedStudio, section, sleep } from "./states";
 
 const OUT = process.env.OUT || "qa/out";
 const fails: string[] = [];
@@ -35,7 +35,9 @@ async function press(page: Page, key: keyof typeof VK & string, shift = false) {
 // so "peer" focus rules do not reach it).
 const STOP = `(() => {
   const el = document.activeElement;
-  if (!el || el === document.body || el === document.documentElement) return null;
+  // Chrome keeps document.activeElement on the final control after Tab moves focus
+  // into browser chrome, so stop when the page itself no longer owns focus.
+  if (!document.hasFocus() || !el || el === document.body || el === document.documentElement) return null;
   let r = el.getBoundingClientRect();
   const look = (s) => ({ outline: s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0 ? [s.outlineStyle, s.outlineWidth, s.outlineColor, s.outlineOffset].join(' ') : '',
     shadow: s.boxShadow && s.boxShadow !== 'none' ? s.boxShadow : '' });
@@ -85,7 +87,9 @@ async function axName(page: Page): Promise<string> {
 // Tab from the top of a freshly loaded page until focus leaves the page or comes back to the first stop
 async function walk(page: Page, label: string, max = 300): Promise<Stop[]> {
   const stops: Stop[] = [];
-  await page.eval(`window.__kbFirst = null; true`);
+  // Give the browser document an explicit keyboard-focus anchor after CDP navigation. Chrome can
+  // otherwise send the first Tab to browser chrome on the 768px emulated viewport.
+  await page.eval(`document.body.tabIndex = -1; document.body.focus(); window.__kbFirst = null; true`);
   for (let i = 0; i < max; i++) {
     await press(page, "Tab");
     await sleep(90);
@@ -346,7 +350,7 @@ const step = (s: string) => console.log(`[${new Date().toISOString().slice(11, 1
     await openStudio(page, SEEDED);
     await studioChecks(page);
     step("account menu at 1440");
-    await openStudio(page, SEEDED);
+    await openAuthenticatedStudio(page);
     await accountChecks(page);
 
     step("studio at 768");
@@ -360,7 +364,7 @@ const step = (s: string) => console.log(`[${new Date().toISOString().slice(11, 1
 
     report.orders = { "landing-1440": short(landing), "studio-1440": short(studio), "studio-long-1440": short(long).slice(-8), "studio-768": short(studio768) };
     report.stops = { "landing-1440": landing, "studio-1440": studio, "studio-long-1440": long, "studio-768": studio768 };
-  } finally { proc.kill(); }
+  } finally { page.close(); proc.kill(); }
   report.fails = fails;
   fs.writeFileSync(`${OUT}/keyboard.json`, JSON.stringify(report, null, 2));
   for (const [k, v] of Object.entries(report.orders ?? {})) console.log(`\n${k} (${(report.stops[k] as Stop[]).length} stops):\n  ${(v as string[]).join("\n  ")}`);

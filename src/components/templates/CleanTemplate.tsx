@@ -306,7 +306,7 @@ export const CleanTemplate = forwardRef<HTMLDivElement, CleanTemplateProps>(
                       setActiveBulletDraft({ projectId, text: "" });
                     }}
                     className="w-full text-left border border-dashed border-gray-300 hover:border-ink hover:bg-gray-50 text-gray-500 hover:text-ink text-[9pt] py-1.5 px-3 rounded transition-colors cursor-pointer print:hidden"
-                    aria-label="Add first bullet point"
+                    aria-label="Add your first bullet point"
                   >
                     <span className="font-semibold text-ink mr-1">+</span> Add your first bullet point
                   </button>
@@ -320,7 +320,7 @@ export const CleanTemplate = forwardRef<HTMLDivElement, CleanTemplateProps>(
                     e.stopPropagation();
                     setActiveBulletDraft({ projectId, text: "" });
                   }}
-                  className="group/btn inline-flex items-center text-[8.5pt] text-gray-400 hover:text-ink transition-colors cursor-pointer py-0.5 px-1.5 rounded hover:bg-gray-100 print:hidden"
+                  className="group/btn inline-flex items-center text-[8.5pt] text-gray-600 hover:text-ink transition-colors cursor-pointer py-0.5 px-1.5 rounded hover:bg-gray-100 print:hidden"
                   aria-label="Add bullet point"
                 >
                   <span className="mr-1 opacity-70 group-hover/btn:opacity-100 font-bold">+</span> Add bullet
@@ -497,7 +497,7 @@ export const CleanTemplate = forwardRef<HTMLDivElement, CleanTemplateProps>(
                     setCourseworkDraft({ title: "", date: "" });
                   }}
                   className="inline-flex items-center text-[8.5pt] text-gray-500 hover:text-ink border border-dashed border-gray-300 hover:border-ink hover:bg-gray-50 px-2 py-0.5 rounded transition-colors cursor-pointer print:hidden"
-                  aria-label="Add Coursework"
+                  aria-label="Add course or workshop (coursework)"
                 >
                   <span className="font-bold mr-1">+</span> Add course or workshop
                 </button>
