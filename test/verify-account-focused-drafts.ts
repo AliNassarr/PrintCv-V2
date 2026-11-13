@@ -870,15 +870,23 @@ export async function runCase11() {
   await controller.reconcileSession();
 
   useCVStore.getState().updateContact({ fullName: "FIRST WRITE" });
-  let releaseLock: any;
-  globalLockHook = (cb) => new Promise((res) => (releaseLock = () => res(cb({}))));
+  const heldLocks: Array<() => void> = [];
+  globalLockHook = cb => new Promise((resolve, reject) => {
+    heldLocks.push(() => { Promise.resolve(cb({})).then(resolve, reject); });
+  });
   const p = controller.flush();
   await pause(0);
+  assert.equal(heldLocks.length, 1, "First write must be held at its repository lock.");
   useCVStore.getState().updateContact({ fullName: "SECOND LATEST" });
-  releaseLock();
+  heldLocks.shift()!();
+  // The newer candidate must acquire a second lock after the first commit is
+  // acknowledged. Release that actual write too; otherwise this fake leaves
+  // the correct serialized implementation blocked until its lock timeout.
+  for (let i = 0; i < 20 && Number(heldLocks.length) === 0; i++) await pause(0);
+  assert.equal(heldLocks.length, 1, "Newer candidate must acquire its own repository lock.");
+  heldLocks.shift()!();
   await p;
   globalLockHook = null;
-  await pause(350);
 
   const disk = readDraftRecord(`${DRAFTS_KEY_PREFIX}account:42:803`)!;
   assert.equal(

@@ -19,9 +19,23 @@ import {
   evaluateCandidateBullet,
   MAX_BULLET_LENGTH,
 } from "../src/lib/ai/bullet-parser";
+import { prepareGeneratedCandidates } from "../src/lib/bullet-helper";
 
 let passed = 0;
 let failed = 0;
+
+check("Unverified metrics and insufficient-evidence suggestions require explicit review", () => {
+  const suggestions = prepareGeneratedCandidates(
+    ["Built a service handling 100 users.", "Implemented a documented parser."],
+    [{ unverifiedMetric: true }, { unverifiedMetric: false }], true, 1,
+  );
+  assert.equal(suggestions[0].selected, false);
+  assert.equal(suggestions[0].unverifiedMetric, true);
+  assert.equal(suggestions[1].selected, true);
+  const sparse = prepareGeneratedCandidates(["Built a service."], [], false, 2);
+  assert.equal(sparse[0].selected, false);
+  assert.equal(sparse[0].evidenceInsufficient, true);
+});
 
 function check(name: string, fn: () => void) {
   try {

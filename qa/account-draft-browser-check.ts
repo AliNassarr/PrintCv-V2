@@ -1,6 +1,7 @@
 // Dedicated browser acceptance test for account/draft isolation using Chrome DevTools Protocol (CDP)
 import fs from "fs";
 import { launch, Page } from "./cdp";
+import { createEmptyCV } from "../src/lib/intra/cv-from-intra";
 
 const CHROME =
   process.platform === "win32"
@@ -167,22 +168,22 @@ async function main() {
     // STEP 2: Alice logs out truthfully via real DOM account menu click
     // -------------------------------------------------------------------------
     console.log("[STEP 2] Alice logs out via DOM menu interaction...");
-    await page.eval(`(() => {
+    const accountMenuOpened = await page.eval<boolean>(`(() => {
       const accountBtn = document.querySelector('[data-test-id="account-button"]');
-      if (accountBtn) accountBtn.click();
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const logoutBtn = buttons.find((b) => b.innerText.includes("Log out") || b.title?.includes("Log out"));
-      if (!logoutBtn) {
-        // Fallback to topbar MoreMenu logout
-        const moreBtn = document.querySelector('[aria-label="More"]');
-        if (moreBtn) moreBtn.click();
-        const moreLogout = Array.from(document.querySelectorAll('button')).find((b) => b.innerText.includes("Log out"));
-        if (moreLogout) moreLogout.click();
-        else window.__PRINTCV_CONTROLLER__.logout();
-      } else {
-        logoutBtn.click();
-      }
+      if (!accountBtn) return false;
+      accountBtn.click();
+      return true;
     })()`);
+    if (!accountMenuOpened) throw new Error("Account menu trigger was not available in the DOM.");
+    await pause(100); // React mounts menu items after the trigger's click event.
+    const logoutMenuClicked = await page.eval<boolean>(`(() => {
+      const logoutBtn = Array.from(document.querySelectorAll('[role="menuitem"]'))
+        .find((item) => item.textContent?.trim() === "Log out");
+      if (!logoutBtn) return false;
+      logoutBtn.click();
+      return true;
+    })()`);
+    if (!logoutMenuClicked) throw new Error("Log out menu item did not appear after opening the account menu.");
 
     await pause(600);
 
@@ -221,29 +222,19 @@ async function main() {
       validatedProjects: [],
     };
 
-    // Inject a guest draft with substantive work to trigger the review banner
-    await page.eval(`(() => {
-      localStorage.setItem('printcv_drafts_v1:guest', JSON.stringify({
-        schemaVersion: 1,
-        draftId: 'guest-sample-banner',
-        owner: { kind: 'guest' },
-        revision: 1,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        snapshotVersion: 1,
-        snapshot: {
-          cvData: {
-            contact: { fullName: "Shared Guest Draft" },
-            projects: [{ id: "p1", name: "Push_swap", bulletPoints: ["Sorting in C"] }],
-            education: [],
-            experience: [],
-            skills: { languages: [], developerTools: [], technologiesFrameworks: [], projectManagementTools: [] },
-            coursework: [],
-            extracurriculars: []
-          }
-        }
-      }));
-    })()`);
+    // Inject a valid, fully shaped guest draft; strict hydration rejects the
+    // partial CV fixture this test used before account-draft validation landed.
+    const guestCv = createEmptyCV();
+    guestCv.contact.fullName = "Shared Guest Draft";
+    guestCv.projects = [{ id: "p1", name: "Push_swap", slug: "push_swap", is42Project: false,
+      techStack: "C", date: "", bulletPoints: ["Sorting in C"] }];
+    const guestCreatedAt = Date.now();
+    const guestRecord = {
+      schemaVersion: 1, draftId: "guest-sample-banner", owner: { kind: "guest" }, revision: 1,
+      createdAt: guestCreatedAt, updatedAt: guestCreatedAt, snapshotVersion: 1,
+      snapshot: { cvData: guestCv, currentStep: "SETUP", targetRole: "" },
+    };
+    await page.eval(`localStorage.setItem('printcv_drafts_v1:guest', ${JSON.stringify(JSON.stringify(guestRecord))})`);
 
     await page.eval("window.__PRINTCV_CONTROLLER__.reconcileSession()");
     await pause(800);
@@ -356,15 +347,23 @@ async function main() {
       throw new Error("Bob's data was not restored after page refresh!");
     }
 
-    // Bob logs out via DOM menu
-    await page.eval(`(() => {
+    // Bob also logs out through the real account menu; no controller fallback.
+    const bobMenuOpened = await page.eval<boolean>(`(() => {
       const accountBtn = document.querySelector('[data-test-id="account-button"]');
-      if (accountBtn) accountBtn.click();
-      const buttons = Array.from(document.querySelectorAll('button'));
-      const logoutBtn = buttons.find((b) => b.innerText.includes("Log out") || b.title?.includes("Log out"));
-      if (logoutBtn) logoutBtn.click();
-      else window.__PRINTCV_CONTROLLER__.logout();
+      if (!accountBtn) return false;
+      accountBtn.click();
+      return true;
     })()`);
+    if (!bobMenuOpened) throw new Error("Bob's account menu trigger was not available in the DOM.");
+    await pause(100);
+    const bobLogoutClicked = await page.eval<boolean>(`(() => {
+      const logoutBtn = Array.from(document.querySelectorAll('[role="menuitem"]'))
+        .find((item) => item.textContent?.trim() === "Log out");
+      if (!logoutBtn) return false;
+      logoutBtn.click();
+      return true;
+    })()`);
+    if (!bobLogoutClicked) throw new Error("Bob's Log out menu item did not appear after opening the account menu.");
     await pause(600);
 
     if (getDeleteCount() !== 2) {

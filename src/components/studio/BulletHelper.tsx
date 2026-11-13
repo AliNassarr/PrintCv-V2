@@ -14,6 +14,7 @@ import {
   HelperTarget,
   usedOpeningWords,
   parseBulletsFromAI as parseReply,
+  prepareGeneratedCandidates,
 } from "@/lib/bullet-helper";
 import { ProjectArchetype } from "@/lib/project-guide";
 import { ReadmeParseResult, extractReadmeSections } from "@/lib/readme-parser";
@@ -419,6 +420,7 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
         }
 
         const returnedBullets: string[] = Array.isArray(data.bullets) ? data.bullets : [];
+        const returnedCandidates: Array<{ text?: string; unverifiedMetric?: boolean }> = Array.isArray(data.candidates) ? data.candidates : [];
 
         // Explicit empty response handling
         if (returnedBullets.length === 0) {
@@ -429,11 +431,11 @@ export function BulletHelper({ target, onClose, onApply }: BulletHelperProps) {
         }
 
         // Success: populate candidate bullets and transition to Review Studio tab
-        const newCandidates: BulletCandidateItem[] = returnedBullets.map((b, i) => ({
-          id: `candidate-${i}-${Date.now()}`,
-          text: b,
-          selected: true,
-        }));
+        const newCandidates: BulletCandidateItem[] = prepareGeneratedCandidates(
+          returnedBullets,
+          returnedCandidates,
+          data.hasSufficientEvidence !== false,
+        );
         setCandidates(newCandidates);
         setActiveTab(2); // Automatically advance to Candidate Review Studio
       }
